@@ -53,4 +53,4 @@ rule Downloader_Strings
         $d3 = "ShellExecute"      ascii wide
     condition:
         $d1 and ($d2 or $d3)
-}s
+}
