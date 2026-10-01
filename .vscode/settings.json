@@ -1,0 +1,8 @@
+{
+    "terminal.integrated.env.windows": {
+       "PYTHONDONTWRITEBYTECODE": "1"
+    },
+    "files.exclude": {
+       "**/__pycache__": true
+    }
+}
