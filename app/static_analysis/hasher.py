@@ -2,7 +2,6 @@ import hashlib
 
 
 def get_hashes(file_path):
-    #Return the MD5, SHA-1, SHA-256 and size of a file.
     md5 = hashlib.md5()
     sha1 = hashlib.sha1()
     sha256 = hashlib.sha256()

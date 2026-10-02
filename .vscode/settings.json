@@ -3,6 +3,8 @@
        "PYTHONDONTWRITEBYTECODE": "1"
     },
     "files.exclude": {
+      "**/__init__.py": true,
        "**/__pycache__": true
+       
     }
 }
