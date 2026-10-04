@@ -1,12 +1,3 @@
-# import hashlib
-
-# text = "abc"
-# data = text.encode()          # hashlib works on bytes, not text
-
-# print("MD5    :", hashlib.md5(data).hexdigest())
-# print("SHA-1  :", hashlib.sha1(data).hexdigest())
-# print("SHA-256:", hashlib.sha256(data).hexdigest())
-
 import os
 import tempfile
 import unittest
@@ -56,3 +47,15 @@ if __name__ == "__main__":
 
 # Run in powershell using this command: 
 # python -m unittest tests.test_hasher -v 
+
+
+
+
+# import hashlib
+
+# text = "abc"
+# data = text.encode()          # hashlib works on bytes, not text
+
+# print("MD5    :", hashlib.md5(data).hexdigest())
+# print("SHA-1  :", hashlib.sha1(data).hexdigest())
+# print("SHA-256:", hashlib.sha256(data).hexdigest())
