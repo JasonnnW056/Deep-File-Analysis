@@ -28,6 +28,9 @@ ANALYZER_NAME = "pe"
 
 IMAGE_SCN_MEM_EXECUTE = 0x20000000
 IMAGE_SCN_MEM_WRITE = 0x80000000
+MAX_PE_SIZE = 256 * 1024 * 1024
+MAX_LIST_ITEMS = 500
+
 
 STANDARD_SECTIONS = {
     ".text", ".data", ".rdata", ".rsrc", ".reloc", ".idata", ".edata",
@@ -102,7 +105,9 @@ def _parse_sections(pe) -> list:
 
 def _parse_imports(pe) -> dict:
     imports = {}
-    for entry in getattr(pe, "DIRECTORY_ENTRY_IMPORT", []):
+    entries = list(getattr(pe, "DIRECTORY_ENTRY_IMPORT", [])) + \
+              list(getattr(pe, "DIRECTORY_ENTRY_DELAY_IMPORT", []))
+    for entry in entries:
         dll = _decode(entry.dll).lower()
         funcs = []
         for imp in entry.imports:
@@ -136,7 +141,7 @@ def _build_findings(data: dict) -> list:
 
     for s in data["sections"]:
         name = s["name"]
-        if s["entropy"] > 7.2:
+        if s["entropy"] > 7.2 and s["raw_size"] >= 1024:
             findings.append(_finding(
                 "PE_HIGH_ENTROPY", "medium",
                 f"Section {name} has high entropy ({s['entropy']}): possibly packed or encrypted",
@@ -157,7 +162,8 @@ def _build_findings(data: dict) -> list:
                 f"Section {name} is executable but has no raw data (may unpack at runtime)",
                 section=name))
 
-    total_imports = sum(len(v) for v in data["imports"].values())
+    all_funcs = [f for fs in data["imports"].values() for f in fs]
+    total_imports = len(all_funcs)
     if data["file_type"] == "exe":
         if total_imports == 0:
             findings.append(_finding("PE_NO_IMPORTS", "low", "No imports found"))
@@ -167,7 +173,7 @@ def _build_findings(data: dict) -> list:
                 f"Very small import table ({total_imports}): common with packers",
                 count=total_imports))
 
-    found = sorted({f for fs in data["imports"].values() for f in fs} & NOTABLE_APIS)
+    found = sorted(set(all_funcs) & NOTABLE_APIS)
     if found:
         findings.append(_finding(
             "PE_NOTABLE_APIS", "low",
@@ -192,7 +198,7 @@ def _build_findings(data: dict) -> list:
             "PE_OVERLAY", "info",
             f"Overlay data present ({data['overlay_size']} bytes)",
             size=data["overlay_size"]))
-    if not data["checksum_valid"]:
+    if data["checksum_valid"] is False:
         findings.append(_finding(
             "PE_CHECKSUM_MISMATCH", "info",
             "PE checksum mismatch (normal for many unsigned files)"))
@@ -207,12 +213,18 @@ def _build_findings(data: dict) -> list:
 
 # ---------- public API ----------
 
-def analyze_pe(path) -> dict:
+def analyze_pe(path, verify_checksum=False) -> dict:
     """Analyze a PE file. Always returns the standard envelope; never raises on bad input."""
     path = Path(path)
 
     if not path.is_file():
         return _result("error", error="File not found")
+    try:
+        if path.stat().st_size > MAX_PE_SIZE:
+            return _result("skipped", error=f"File too large (> {MAX_PE_SIZE // 2**20} MB)")
+    except OSError as e:
+        return _result("error", error=f"Cannot stat file: {e}")
+
     if not _has_mz_header(path):
         return _result("skipped", error="Not a PE file (no MZ header)")
 
@@ -221,6 +233,7 @@ def analyze_pe(path) -> dict:
         pe = pefile.PE(str(path), fast_load=True)
         pe.parse_data_directories(directories=[
             pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_IMPORT"],
+            pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT"],
             pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_EXPORT"],
             pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_RESOURCE"],
         ])
@@ -255,14 +268,17 @@ def analyze_pe(path) -> dict:
             "imphash": pe.get_imphash() or None,
             "sections": _parse_sections(pe),
             "imports": _parse_imports(pe),
-            "exports": _parse_exports(pe),
+            "exports": _parse_exports(pe)[:MAX_LIST_ITEMS],
             "version_info": _parse_version_info(pe),
             "has_signature": sec_dir.Size > 0,  # presence only; NOT validated
             "overlay_size": (file_size - overlay_offset) if overlay_offset else 0,
-            "checksum_valid": pe.verify_checksum(),
+            "checksum_valid":pe.verify_checksum() if verify_checksum else None,
             "parser_warnings": [str(w) for w in pe.get_warnings()[:10]],
         }
-        return _result("ok", data=data, findings=_build_findings(data))
+        findings = _build_findings(data)
+        data["import_count"] = sum(len(v) for v in data["imports"].values())
+        data["imports"] = {dll: funcs[:MAX_LIST_ITEMS] for dll, funcs in data["imports"].items()}
+        return _result("ok", data=data, findings=findings)
 
     except pefile.PEFormatError as e:
         return _result("error", error=f"Malformed PE: {e}")
