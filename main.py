@@ -1,5 +1,6 @@
 import json
 import sys
+from pathlib import Path 
 
 from app.static_analysis.scanner import scan_file
 
@@ -17,20 +18,17 @@ def print_report(report):
     if h.get("imphash"):
         print("Imphash:", h["imphash"])
 
-    print()
-    print("Analyzers:")
+    print("\nAnalyzers:")
     for name, env in report["analyzers"].items():
         note = f" ({env['error']})" if env["error"] else ""
         print(f"  {name:<6}: {env['status']}{note}")
 
-    print()
-    print(f"Risk   : {s['risk_level']}  (score {s['score']}/100)")
+    print(f"\nRisk   : {s['risk_level']}  (score {s['score']}/100)")
     if s["risk_level"] == "none":
         print("         nothing flagged, which is NOT proof the file is safe")
 
     if report["findings"]:
-        print()
-        print("Findings:")
+        print("\nFindings:")
         for item in report["findings"]:
             print(f"  [{item['severity'].upper():<6}] {item['analyzer']}: {item['message']}")
 
@@ -39,6 +37,9 @@ def print_report(report):
 
 
 def main(argv):
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
+
     as_json = "--json" in argv[1:]
     args = [a for a in argv[1:] if a != "--json"]
 
@@ -47,21 +48,26 @@ def main(argv):
         return 1
 
     file_path = args[0]
+    if not Path(file_path).is_file():
+        print("File not found:", file_path, file=sys.stderr)
+        return 1
+    
     report = scan_file(file_path)
 
-    if "File not found" in report["errors"]:
-        print("File not found:", file_path)
-        return 1
-
     if as_json:
-        print(json.dumps(report, indent=2))
+        print(json.dumps(report, indent=2, default=str))
     else:
         print_report(report)
-    return 0
-
+    failed = report["summary"]["analyzers_failed"]
+    return 2 if (report["errors"] or failed) else 0    #Exit codes are 0 for a clean scan, 1 for bad usage or a missing file, and 2 when the scan itself had errors.
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
+
+
+
+
+
 
 # Run this command: 
 # python main.py abc.txt

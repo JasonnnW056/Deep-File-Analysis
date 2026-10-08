@@ -1,6 +1,4 @@
 import datetime
-import json
-import sys
 from pathlib import Path
 
 from .hasher import get_hashes
@@ -10,6 +8,7 @@ SCHEMA_VERSION = 1
 
 SEVERITY_ORDER = ("info", "low", "medium", "high")
 SEVERITY_WEIGHTS = {"info": 0, "low": 5, "medium": 15, "high": 30}
+VALID_STATUS = ("ok", "skipped", "error")
 
 _ANALYZERS = {}
 
@@ -41,11 +40,28 @@ def _run_analyzer(name, func, path):
         return _failed(name, f"{type(e).__name__}: {e}")
     if not isinstance(env, dict):
         return _failed(name, "Analyzer returned a non-dict result")
+
+    status = env.get("status", "ok")
+    if status not in VALID_STATUS:
+        return _failed(name, f"Invalid status: {status!r}")
+
+    env["status"] = status
     env.setdefault("analyzer", name)
-    env.setdefault("status", "ok")
-    env.setdefault("error", None)
-    env.setdefault("data", {})
-    env.setdefault("findings", [])
+    env["error"] = env.get("error")
+    env["data"] = env.get("data") or {}
+
+    clean = []
+    for f in env.get("findings") or []:
+        if not isinstance(f, dict):
+            continue
+        f.setdefault("id", "UNKNOWN")
+        f.setdefault("analyzer", env["analyzer"])
+        f.setdefault("message", "")
+        f.setdefault("detail", {})
+        if f.get("severity") not in SEVERITY_ORDER:
+            f["severity"] = "info"
+        clean.append(f)
+    env["findings"] = clean
     return env
 
 
@@ -92,7 +108,12 @@ def scan_file(path, analyzers=None):
         report["summary"] = _summarize([], {})
         return report
 
-    report["file"]["size"] = path.stat().st_size
+    try:
+        report["file"]["size"] = path.stat().st_size
+    except OSError as e:
+        report["errors"].append(f"Cannot stat file: {type(e).__name__}: {e}")
+        report["summary"] = _summarize([], {})
+        return report
 
     try:
         report["hashes"] = {k: v for k, v in get_hashes(path).items() if k != "size"}
@@ -120,8 +141,8 @@ def scan_file(path, analyzers=None):
     return report
 
 
-if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python -m app.static_analysis.scanner <file>")
-        sys.exit(1)
-    print(json.dumps(scan_file(sys.argv[1]), indent=2))
+# if __name__ == "__main__":
+#     if len(sys.argv) != 2:
+#         print("Usage: python -m app.static_analysis.scanner <file>")
+#         sys.exit(1)
+#     print(json.dumps(scan_file(sys.argv[1]), indent=2))
