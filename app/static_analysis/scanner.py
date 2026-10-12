@@ -3,6 +3,7 @@ from pathlib import Path
 
 from .hasher import get_hashes
 from .pe_analyzer import analyze_pe
+from .yara_scanner import analyze_yara
 
 SCHEMA_VERSION = 1
 
@@ -27,7 +28,7 @@ def registered_analyzers():
 
 
 register_analyzer("pe", analyze_pe)
-
+register_analyzer("yara", analyze_yara)
 
 def _failed(name, message):
     return {"analyzer": name, "status": "error", "error": message, "data": {}, "findings": []}
