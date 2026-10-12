@@ -220,3 +220,4 @@ __marimo__/
 # Deep File Analysis
 uploads/
 *.db
+rules/compiled_full.yarc
