@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% macro sev(s) %}<span class="sev sev-{{ s }}">{{ s }}</span>{% endmacro %}
+
+{# Explains a skipped / failed / missing analyzer. Prints nothing when status is ok. #}
+{% macro notice(env, label) %}
+  {% if env is none %}<p class="notice">{{ label }} did not run.</p>
+  {% elif env.status == 'skipped' %}<p class="notice">{{ label }} skipped: {{ env.error or 'not applicable to this file' }}.</p>
+  {% elif env.status == 'error' %}<p class="notice bad">{{ label }} failed: {{ env.error }}</p>
+  {% endif %}
+{% endmacro %}
+
+{% macro kv(rows) %}
+  <table class="kv">
+    {% for label, value in rows %}
+      <tr><th scope="row">{{ label }}</th>
+          <td>{% if value is none or value == '' %}<span class="muted">none</span>{% else %}{{ value }}{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+{% endmacro %}
+
+{% block content %}
+{% set s = result.summary %}
+{% set pe = result.analyzers.get('pe') %}
+{% set ya = result.analyzers.get('yara') %}
+{% set risk = s.get('risk_level', 'none') %}
+
+<a class="back" href="{{ url_for('web.index') }}">Scan another file</a>
+
+{% for e in result.errors %}<p class="notice bad">{{ e }}</p>{% endfor %}
+
+<section class="summary risk-{{ risk }}">
+  <div class="who">
+    <h1>{{ result.file.name }}</h1>
+    <p class="muted">
+      {% if result.file.size is not none %}{{ "{:,}".format(result.file.size) }} bytes{% endif %}
+      {% if result.hashes.get('sha256') %} &middot; SHA-256 <code>{{ result.hashes.sha256[:16] }}…</code>{% endif %}
+    </p>
+    <p class="chips">
+      {% for name, env in result.analyzers.items() %}
+        <span class="chip chip-{{ env.status }}">{{ name }}: {{ env.status }}</span>
+      {% endfor %}
+    </p>
+  </div>
+  <div class="score">
+    <p class="verdict">{% if risk == 'none' %}No findings{% else %}{{ risk|capitalize }} risk{% endif %}</p>
+    <p class="muted">Score {{ s.get('score', 0) }}/100 &middot; {{ s.get('finding_count', 0) }} finding{{ '' if s.get('finding_count', 0) == 1 else 's' }}</p>
+    {% if risk == 'none' and not s.get('analyzers_failed') %}
+      <p class="muted small">This does not prove the file is safe.</p>
+    {% endif %}
+  </div>
+</section>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" aria-selected="true"  data-tab="findings">Findings <span class="count">{{ result.findings|length }}</span></button>
+  <button role="tab" aria-selected="false" data-tab="hashes">Hashes</button>
+  <button role="tab" aria-selected="false" data-tab="pe">PE info</button>
+  <button role="tab" aria-selected="false" data-tab="yara">YARA {% if ya %}<span class="count">{{ ya.data.get('match_count', 0) }}</span>{% endif %}</button>
+  <button role="tab" aria-selected="false" data-tab="raw">Raw JSON</button>
+       <button type="button" id="download" class="ghost" data-filename="{{ result.file.name ~ '.report.json' }}">Download report</button>
+</nav>
+
+{# ---- Findings ---- #}
+<section class="panel" id="tab-findings">
+  {% if not result.findings %}
+    <p class="muted">No analyzer flagged anything.</p>
+  {% else %}
+    <ul class="findings">
+      {% for f in result.findings %}
+        <li>
+          <div class="frow">{{ sev(f.severity) }}<span class="fmsg">{{ f.message }}</span><span class="fid">{{ f.analyzer }} &middot; {{ f.id }}</span></div>
+          {% if f.detail %}<details><summary>Details</summary><pre>{{ f.detail | tojson(indent=2) }}</pre></details>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</section>
+
+{# ---- Hashes ---- #}
+<section class="panel" id="tab-hashes" hidden>
+  {% if result.hashes %}
+    {{ kv(result.hashes.items()|list) }}
+  {% else %}<p class="muted">Hashing failed. See the errors at the top of the page.</p>{% endif %}
+</section>
+
+{# ---- PE ---- #}
+<section class="panel" id="tab-pe" hidden>
+  {{ notice(pe, 'PE analysis') }}
+  {% if pe and pe.status == 'ok' %}
+    {% set d = pe.data %}
+    {{ kv([
+      ('Type', d.file_type), ('Architecture', d.bitness ~ ' (machine ' ~ d.machine ~ ')'),
+      ('Compile time', d.compile_timestamp), ('Entry point', d.entry_point),
+      ('Image base', d.image_base), ('Subsystem', d.subsystem), ('Imphash', d.imphash),
+      ('Signature present', ('yes (not validated)' if d.has_signature else 'no')),
+      ('Overlay', ('{:,} bytes'.format(d.overlay_size) if d.overlay_size else 'none')),
+      ('Checksum', ('valid' if d.checksum_valid else 'mismatch') if d.checksum_valid is not none else 'not checked'),
+    ]) }}
+
+    <h3>Sections</h3>
+    <table class="grid">
+      <thead><tr><th>Name</th><th>Virtual addr</th><th>Virtual size</th><th>Raw size</th><th>Entropy</th><th>Flags</th></tr></thead>
+      <tbody>
+      {% for sec in d.sections %}
+        <tr>
+          <td><code>{{ sec.name }}</code></td>
+          <td><code>{{ sec.virtual_address }}</code></td>
+          <td>{{ "{:,}".format(sec.virtual_size) }}</td>
+          <td>{{ "{:,}".format(sec.raw_size) }}</td>
+          <td><span class="bar {{ 'hot' if sec.entropy > 7.2 else '' }}"><i style="width: {{ (sec.entropy / 8 * 100)|round|int }}%"></i></span> {{ sec.entropy }}</td>
+          <td>
+            {% if sec.executable %}<span class="flag {{ 'hot' if sec.writable else '' }}">X</span>{% endif %}
+            {% if sec.writable %}<span class="flag {{ 'hot' if sec.executable else '' }}">W</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted small">X = executable, W = writable. Entropy bars turn red above 7.2.</p>
+
+    <h3>Imports ({{ d.import_count }})</h3>
+    {% for dll, funcs in d.imports.items() %}
+      <details><summary><code>{{ dll }}</code> <span class="muted">{{ funcs|length }}</span></summary><p class="funcs">{{ funcs|join(', ') }}</p></details>
+    {% else %}<p class="muted">None.</p>{% endfor %}
+
+    {% if d.exports %}
+      <h3>Exports ({{ d.exports|length }})</h3>
+      <details><summary>Show exports</summary><p class="funcs">{{ d.exports|join(', ') }}</p></details>
+    {% endif %}
+
+    {% if d.version_info %}
+      <h3>Version info</h3>
+      {{ kv(d.version_info.items()|list) }}
+    {% endif %}
+
+    {% if d.parser_warnings %}
+      <h3>Parser warnings</h3>
+      <ul class="plain">{% for w in d.parser_warnings %}<li class="muted">{{ w }}</li>{% endfor %}</ul>
+    {% endif %}
+  {% endif %}
+</section>
+
+{# ---- YARA ---- #}
+<section class="panel" id="tab-yara" hidden>
+  {{ notice(ya, 'YARA scan') }}
+  {% if ya and ya.status == 'ok' %}
+    {% if not ya.findings %}<p class="muted">No rules matched.</p>
+    {% else %}
+      <table class="grid">
+        <thead><tr><th>Severity</th><th>Rule</th><th>Description</th><th>Tags</th></tr></thead>
+        <tbody>
+        {% for f in ya.findings %}
+          <tr>
+            <td>{{ sev(f.severity) }}</td>
+            <td><code>{{ f.detail.rule }}</code>
+              {% if f.detail.meta %}<details><summary>Rule metadata</summary><pre>{{ f.detail.meta | tojson(indent=2) }}</pre></details>{% endif %}</td>
+            <td>{{ f.detail.meta.get('description', '') }}</td>
+            <td>{% for t in f.detail.tags %}<span class="chip">{{ t }}</span> {% endfor %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  {% endif %}
+</section>
+
+{# ---- Raw ---- #}
+<section class="panel" id="tab-raw" hidden><pre>{{ result | tojson(indent=2) }}</pre></section>
+
+<script id="report-data" type="application/json">{{ result | tojson }}</script>
+<button type="button" id="download" class="ghost" data-filename="{{ result.file.name ~ '.report.json' }}">Download report</button>
+{% endblock %}

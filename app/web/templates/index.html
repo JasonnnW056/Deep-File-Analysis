@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Scan a file</h1>
+<p class="lede">Hashes, PE structure and YARA matches. The file is analysed statically and never executed.</p>
+
+{% if error %}<p class="alert" role="alert">{{ error }}</p>{% endif %}
+
+<form id="scan-form" action="{{ url_for('web.scan') }}" method="post" enctype="multipart/form-data">
+  <label class="drop" for="file">
+    <span id="drop-text">Choose a file or drop it here</span>
+    <input id="file" type="file" name="file" required>
+  </label>
+  <button id="scan-btn" type="submit">Scan file</button>
+</form>
+{% endblock %}

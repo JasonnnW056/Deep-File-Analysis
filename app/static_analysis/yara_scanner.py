@@ -2,8 +2,8 @@ import os
 import yara
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-RULES_PATH = "rules/yara-rules-full.yar"
-COMPILED_PATH = "rules/compiled_full.yarc"
+RULES_PATH = os.path.join(BASE_DIR, "rules", "yara-rules-full.yar")
+COMPILED_PATH = os.path.join(BASE_DIR, "rules", "compiled_full.yarc")
 
 _rules = None
 
