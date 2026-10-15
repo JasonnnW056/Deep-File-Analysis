@@ -4,11 +4,23 @@ from pathlib import Path
 from .hasher import get_hashes
 from .pe_analyzer import analyze_pe
 from .yara_scanner import analyze_yara
+from collections import Counter
 
 SCHEMA_VERSION = 1
 
 SEVERITY_ORDER = ("info", "low", "medium", "high")
-SEVERITY_WEIGHTS = {"info": 0, "low": 5, "medium": 15, "high": 30}
+
+# Scoring model: each finding has a strength. Strengths combine as
+#   score = 100 * (1 - product(1 - strength))
+# so the score can never pass 100, one strong signal outweighs many weak ones,
+# and a finding repeated under the same id counts less each time.
+# "info" findings are context only and never change the score.
+RISK_ORDER = ("none", "low", "medium", "high")
+SEVERITY_WEIGHTS = {"info": 0.0, "low": 0.05, "medium": 0.18, "high": 0.45}
+REPEAT_DECAY = 0.5
+RISK_BANDS = (("high", 60), ("medium", 25), ("low", 1))
+
+
 VALID_STATUS = ("ok", "skipped", "error")
 
 _ANALYZERS = {}
@@ -65,29 +77,62 @@ def _run_analyzer(name, func, path):
     env["findings"] = clean
     return env
 
+def _score(findings):
+    """Return (score 0-100, breakdown). Breakdown = each finding's share of the score."""
+    seen = Counter()
+    weighted = []
+    for f in findings:
+        base = SEVERITY_WEIGHTS[f["severity"]]
+        w = base * (REPEAT_DECAY ** seen[f["id"]])
+        seen[f["id"]] += 1
+        if w > 0:
+            weighted.append((w, f))
+    weighted.sort(key=lambda t: -t[0])
+
+    remaining = 1.0
+    breakdown = []
+    for w, f in weighted:
+        before = 1.0 - remaining
+        remaining *= 1.0 - w
+        breakdown.append({"id": f["id"], "analyzer": f["analyzer"], "severity": f["severity"],
+                          "points": round(((1.0 - remaining) - before) * 100, 1)})
+    return round((1.0 - remaining) * 100), breakdown
+
 
 def _summarize(findings, analyzers):
     counts = {s: 0 for s in SEVERITY_ORDER}
     for f in findings:
         sev = f.get("severity", "info")
         counts[sev if sev in counts else "info"] += 1
-    score = min(100, sum(SEVERITY_WEIGHTS[s] * n for s, n in counts.items()))
-    # Highest severity present, ignoring info. "none" means nothing was flagged,
-    # NOT that the file is safe.
-    risk = "none"
+
+    score, breakdown = _score(findings)
+
+    by_score = "none"
+    for level, floor in RISK_BANDS:
+        if score >= floor:
+            by_score = level
+            break
+    by_severity = "none"
     for s in ("high", "medium", "low"):
         if counts[s]:
-            risk = s
+            by_severity = s
             break
+    # "none" means nothing was flagged, NOT that the file is safe.
+    risk = max(by_score, by_severity, key=RISK_ORDER.index)
+
+    failed = [n for n, e in analyzers.items() if e["status"] == "error"]
     return {
         "risk_level": risk,
         "score": score,
         "severity_counts": counts,
         "finding_count": len(findings),
+        "breakdown": breakdown[:10],
+        "complete": not failed,
         "analyzers_ok": [n for n, e in analyzers.items() if e["status"] == "ok"],
         "analyzers_skipped": [n for n, e in analyzers.items() if e["status"] == "skipped"],
-        "analyzers_failed": [n for n, e in analyzers.items() if e["status"] == "error"],
+        "analyzers_failed": failed,
     }
+
 
 
 def scan_file(path, analyzers=None):

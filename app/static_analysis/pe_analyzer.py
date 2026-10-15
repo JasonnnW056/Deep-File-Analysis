@@ -1,24 +1,5 @@
 #pe_analyzer.py - static PE analysis (pefile based).
-"""
-Every analyzer in this project (PE now, YARA later) returns the same envelope,
-so the scanner can merge results without knowing who produced them:
 
-    {
-      "analyzer": "pe",
-      "status":   "ok" | "skipped" | "error",
-      "error":    None | "message",
-      "data":     {...analyzer-specific, JSON-serialisable...},
-      "findings": [{"id", "analyzer", "severity", "message", "detail"}, ...],
-    }
-
-status:
-    ok       analysis ran
-    skipped  not applicable (e.g. the file is not a PE). NOT a failure.
-    error    something went wrong (missing file, malformed PE, ...)
-
-severity: "info" | "low" | "medium" | "high"
-Findings are triage leads, not verdicts: packed legitimate software trips several.
-"""
 import datetime
 from pathlib import Path
 
@@ -35,18 +16,25 @@ MAX_LIST_ITEMS = 500
 STANDARD_SECTIONS = {
     ".text", ".data", ".rdata", ".rsrc", ".reloc", ".idata", ".edata",
     ".pdata", ".bss", ".tls", ".didat", ".crt", ".gfids", ".00cfg",
+    ".rodata", ".code", ".retplne", ".voltbl", ".gehcont",
+    "init", "page",
+    "init", "page",
+    "fothk", ".fothk",
 }
 
-# Presence alone proves nothing: plenty of legitimate software imports these.
-NOTABLE_APIS = {
-    "VirtualAlloc", "VirtualAllocEx", "VirtualProtect", "WriteProcessMemory",
-    "ReadProcessMemory", "CreateRemoteThread", "NtUnmapViewOfSection",
-    "SetWindowsHookExA", "SetWindowsHookExW", "GetAsyncKeyState",
-    "LoadLibraryA", "LoadLibraryW", "GetProcAddress", "WinExec",
-    "ShellExecuteA", "ShellExecuteW", "URLDownloadToFileA", "URLDownloadToFileW",
-    "InternetOpenA", "InternetOpenW", "IsDebuggerPresent",
-    "CheckRemoteDebuggerPresent", "AdjustTokenPrivileges", "CryptEncrypt",
+# Strong: rarely needed by ordinary programs. Weak: used by almost everything.
+STRONG_APIS = {
+    "VirtualAllocEx", "WriteProcessMemory", "ReadProcessMemory", "CreateRemoteThread",
+    "NtUnmapViewOfSection", "SetWindowsHookExA", "SetWindowsHookExW", "GetAsyncKeyState",
+    "URLDownloadToFileA", "URLDownloadToFileW", "AdjustTokenPrivileges", "CryptEncrypt",
+    "CheckRemoteDebuggerPresent",
 }
+WEAK_APIS = {
+    "VirtualAlloc", "VirtualProtect", "LoadLibraryA", "LoadLibraryW", "GetProcAddress",
+    "WinExec", "ShellExecuteA", "ShellExecuteW", "InternetOpenA", "InternetOpenW",
+    "IsDebuggerPresent",
+}
+NOTABLE_APIS = STRONG_APIS | WEAK_APIS
 
 
 # ---------- envelope helpers ----------
@@ -175,23 +163,26 @@ def _build_findings(data: dict) -> list:
 
     found = sorted(set(all_funcs) & NOTABLE_APIS)
     if found:
+        strong = sorted(set(found) & STRONG_APIS)
+        sev = "medium" if len(strong) >= 3 else "low" if strong else "info"
         findings.append(_finding(
-            "PE_NOTABLE_APIS", "low",
+            "PE_NOTABLE_APIS", sev,
             f"Notable APIs imported ({len(found)}): {', '.join(found)}",
-            apis=found))
+            apis=found, strong=strong))
 
+        # Modern Windows builds store a hash here instead of a date, so odd values are only informational.
     ts = data["compile_timestamp"]
     if ts is None:
         findings.append(_finding(
-            "PE_BAD_TIMESTAMP", "low", "Timestamp is zero or invalid (stripped or forged?)"))
+            "PE_BAD_TIMESTAMP", "info", "Timestamp is zero or invalid (stripped, forged or reproducible build)"))
     else:
         dt = datetime.datetime.fromisoformat(ts)
         if dt > datetime.datetime.now(datetime.timezone.utc):
             findings.append(_finding(
-                "PE_BAD_TIMESTAMP", "low", "Compile timestamp is in the future", timestamp=ts))
+                "PE_BAD_TIMESTAMP", "info", "Compile timestamp is in the future", timestamp=ts))
         elif dt.year < 1995:
             findings.append(_finding(
-                "PE_BAD_TIMESTAMP", "low", "Compile timestamp predates 1995", timestamp=ts))
+                "PE_BAD_TIMESTAMP", "info", "Compile timestamp predates 1995", timestamp=ts))
 
     if data["overlay_size"] > 0:
         findings.append(_finding(
@@ -213,7 +204,7 @@ def _build_findings(data: dict) -> list:
 
 # ---------- public API ----------
 
-def analyze_pe(path, verify_checksum=False) -> dict:
+def analyze_pe(path, verify_checksum=True) -> dict:
     """Analyze a PE file. Always returns the standard envelope; never raises on bad input."""
     path = Path(path)
 
