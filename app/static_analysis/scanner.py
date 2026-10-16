@@ -1,10 +1,10 @@
 import datetime
 from pathlib import Path
-
 from .hasher import get_hashes
 from .pe_analyzer import analyze_pe
 from .yara_scanner import analyze_yara
 from collections import Counter
+from .filetype_analyzer import analyze_filetype
 
 SCHEMA_VERSION = 1
 
@@ -38,7 +38,7 @@ def unregister_analyzer(name):
 def registered_analyzers():
     return list(_ANALYZERS)
 
-
+register_analyzer("filetype", analyze_filetype)
 register_analyzer("pe", analyze_pe)
 register_analyzer("yara", analyze_yara)
 
