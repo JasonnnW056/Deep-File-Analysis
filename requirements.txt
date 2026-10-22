@@ -1,2 +1,3 @@
 yara-python>=4.3.0
 pefile
+flask

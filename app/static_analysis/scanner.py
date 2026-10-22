@@ -5,6 +5,8 @@ from .pe_analyzer import analyze_pe
 from .yara_scanner import analyze_yara
 from collections import Counter
 from .filetype_analyzer import analyze_filetype
+from .generic_analyzer import analyze_generic
+from .pdf_analyzer import analyze_pdf
 
 SCHEMA_VERSION = 1
 
@@ -38,8 +40,11 @@ def unregister_analyzer(name):
 def registered_analyzers():
     return list(_ANALYZERS)
 
+
 register_analyzer("filetype", analyze_filetype)
+register_analyzer("generic", analyze_generic)
 register_analyzer("pe", analyze_pe)
+register_analyzer("pdf", analyze_pdf)
 register_analyzer("yara", analyze_yara)
 
 def _failed(name, message):
@@ -185,10 +190,3 @@ def scan_file(path, analyzers=None):
     report["findings"] = findings
     report["summary"] = _summarize(findings, report["analyzers"])
     return report
-
-
-# if __name__ == "__main__":
-#     if len(sys.argv) != 2:
-#         print("Usage: python -m app.static_analysis.scanner <file>")
-#         sys.exit(1)
-#     print(json.dumps(scan_file(sys.argv[1]), indent=2))
