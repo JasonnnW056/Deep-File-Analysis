@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block title %}{{ result.file.name }} · Deep File Analysis{% endblock %}
 
 {% macro sev(s) %}<span class="sev sev-{{ s }}">{{ s }}</span>{% endmacro %}
 
@@ -19,22 +20,43 @@
   </table>
 {% endmacro %}
 
+{# Renders any dict / list / value, so new analyzers show up without template changes #}
+{% macro render(value) %}
+  {% if value is mapping %}
+    <table class="kv">
+      {% for k, v in value.items() %}
+        <tr><th scope="row">{{ k }}</th><td>{{ render(v) }}</td></tr>
+      {% endfor %}
+    </table>
+  {% elif value is iterable and value is not string %}
+    {% if value|length == 0 %}<span class="muted">none</span>
+    {% else %}<ul class="plain">{% for item in value %}<li>{{ render(item) }}</li>{% endfor %}</ul>{% endif %}
+  {% elif value is none or value == "" %}<span class="muted">none</span>
+  {% else %}{{ value }}{% endif %}
+{% endmacro %}
+
 {% block content %}
 {% set s = result.summary %}
+{% set ft = result.analyzers.get('filetype') %}
 {% set pe = result.analyzers.get('pe') %}
 {% set ya = result.analyzers.get('yara') %}
 {% set risk = s.get('risk_level', 'none') %}
+{% set score = s.get('score', 0) %}
+{% set counts = s.get('severity_counts') or {} %}
+{% set info_n = counts.get('info', 0) %}
+{% set flagged_n = s.get('finding_count', 0) - info_n %}
 
-<a class="back" href="{{ url_for('web.index') }}">Scan another file</a>
+<a class="back" href="{{ url_for('web.index') }}">&larr; Scan another file</a>
 
 {% for e in result.errors %}<p class="notice bad">{{ e }}</p>{% endfor %}
 
 <section class="summary risk-{{ risk }}">
   <div class="who">
+    <p class="eyebrow">{% if ft and ft.status == 'ok' %}{{ ft.data.description }}{% else %}File{% endif %}</p>
     <h1>{{ result.file.name }}</h1>
-    <p class="muted">
+    <p class="meta">
       {% if result.file.size is not none %}{{ "{:,}".format(result.file.size) }} bytes{% endif %}
-      {% if result.hashes.get('sha256') %} &middot; SHA-256 <code>{{ result.hashes.sha256[:16] }}…</code>{% endif %}
+      {% if result.hashes.get('sha256') %}<span class="dot">&middot;</span>SHA-256 <code>{{ result.hashes.sha256[:16] }}…</code>{% endif %}
     </p>
     <p class="chips">
       {% for name, env in result.analyzers.items() %}
@@ -42,34 +64,64 @@
       {% endfor %}
     </p>
   </div>
-  <div class="score">
-    <p class="verdict">{% if risk == 'none' %}No findings{% else %}{{ risk|capitalize }} risk{% endif %}</p>
-    <p class="muted">Score {{ s.get('score', 0) }}/100 &middot; {{ s.get('finding_count', 0) }} finding{{ '' if s.get('finding_count', 0) == 1 else 's' }}</p>
-    {% if risk == 'none' and not s.get('analyzers_failed') %}
-      <p class="muted small">This does not prove the file is safe.</p>
-    {% endif %}
+
+  <div class="verdict-box">
+    <div class="ring" role="img" aria-label="Risk score {{ score }} out of 100">
+      <svg viewBox="0 0 80 80" aria-hidden="true">
+        <circle class="ring-bg" cx="40" cy="40" r="34"/>
+        {% if score > 0 %}<circle class="ring-fg" cx="40" cy="40" r="34" transform="rotate(-90 40 40)" stroke-dasharray="{{ (score * 2.136)|round(1) }} 213.6"/>{% endif %}
+      </svg>
+      <span class="ring-num">{{ score }}</span>
+    </div>
+    <div class="verdict-text">
+      <p class="verdict">{% if risk == 'none' %}No findings{% else %}{{ risk|capitalize }} risk{% endif %}</p>
+      <p class="muted">{{ flagged_n }} finding{{ '' if flagged_n == 1 else 's' }}{% if info_n %} &middot; {{ info_n }} info{% endif %}</p>
+      <p class="sevline">
+        {% for k in ('high', 'medium', 'low') %}{% if counts.get(k) %}<span class="sev sev-{{ k }}">{{ counts[k] }} {{ k }}</span>{% endif %}{% endfor %}
+      </p>
+      {% if s.get('analyzers_failed') %}
+        <p class="muted small">Incomplete: {{ s.analyzers_failed|join(', ') }} failed.</p>
+      {% elif risk == 'none' %}
+        <p class="muted small">This does not prove the file is safe.</p>
+      {% endif %}
+    </div>
   </div>
 </section>
 
-<nav class="tabs" role="tablist">
+<nav class="tabs" role="tablist" aria-label="Report sections">
   <button role="tab" aria-selected="true"  data-tab="findings">Findings <span class="count">{{ result.findings|length }}</span></button>
   <button role="tab" aria-selected="false" data-tab="hashes">Hashes</button>
   <button role="tab" aria-selected="false" data-tab="pe">PE info</button>
-  <button role="tab" aria-selected="false" data-tab="yara">YARA {% if ya %}<span class="count">{{ ya.data.get('match_count', 0) }}</span>{% endif %}</button>
+  <button role="tab" aria-selected="false" data-tab="yara">YARA {% if ya %}<span class="count">{{ (ya.data or {}).get('match_count', 0) }}</span>{% endif %}</button>
+  <button role="tab" aria-selected="false" data-tab="details">Details</button>
   <button role="tab" aria-selected="false" data-tab="raw">Raw JSON</button>
-       <button type="button" id="download" class="ghost" data-filename="{{ result.file.name ~ '.report.json' }}">Download report</button>
+  <button type="button" id="download" class="ghost" data-filename="{{ result.file.name ~ '.report.json' }}">Download report</button>
 </nav>
 
 {# ---- Findings ---- #}
-<section class="panel" id="tab-findings">
+<section class="panel" id="tab-findings" role="tabpanel">
+  {% if s.get('breakdown') %}
+    <details class="why">
+      <summary>Why this score?</summary>
+      <table class="grid">
+        <thead><tr><th>Finding</th><th>Severity</th><th>Points</th></tr></thead>
+        <tbody>
+          {% for b in s.breakdown %}
+            <tr><td><code>{{ b.id }}</code></td><td>{{ sev(b.severity) }}</td><td>+{{ b.points }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="muted small">Findings are combined so that many weak signals can't add up to a false alarm. Repeats of the same finding count less, and info findings never change the score.</p>
+    </details>
+  {% endif %}
   {% if not result.findings %}
-    <p class="muted">No analyzer flagged anything.</p>
+    <p class="muted empty">No analyzer flagged anything.</p>
   {% else %}
     <ul class="findings">
       {% for f in result.findings %}
-        <li>
+        <li class="f f-{{ f.severity }}">
           <div class="frow">{{ sev(f.severity) }}<span class="fmsg">{{ f.message }}</span><span class="fid">{{ f.analyzer }} &middot; {{ f.id }}</span></div>
-          {% if f.detail %}<details><summary>Details</summary><pre>{{ f.detail | tojson(indent=2) }}</pre></details>{% endif %}
+          {% if f.detail %}<details><summary>Details</summary><pre>{{ f.detail | pretty }}</pre></details>{% endif %}
         </li>
       {% endfor %}
     </ul>
@@ -77,14 +129,14 @@
 </section>
 
 {# ---- Hashes ---- #}
-<section class="panel" id="tab-hashes" hidden>
+<section class="panel" id="tab-hashes" role="tabpanel" hidden>
   {% if result.hashes %}
     {{ kv(result.hashes.items()|list) }}
   {% else %}<p class="muted">Hashing failed. See the errors at the top of the page.</p>{% endif %}
 </section>
 
 {# ---- PE ---- #}
-<section class="panel" id="tab-pe" hidden>
+<section class="panel" id="tab-pe" role="tabpanel" hidden>
   {{ notice(pe, 'PE analysis') }}
   {% if pe and pe.status == 'ok' %}
     {% set d = pe.data %}
@@ -101,13 +153,13 @@
     <table class="grid">
       <thead><tr><th>Name</th><th>Virtual addr</th><th>Virtual size</th><th>Raw size</th><th>Entropy</th><th>Flags</th></tr></thead>
       <tbody>
-      {% for sec in d.sections %}
+      {% for sec in d.get('sections') or [] %}
         <tr>
           <td><code>{{ sec.name }}</code></td>
           <td><code>{{ sec.virtual_address }}</code></td>
           <td>{{ "{:,}".format(sec.virtual_size) }}</td>
           <td>{{ "{:,}".format(sec.raw_size) }}</td>
-          <td><span class="bar {{ 'hot' if sec.entropy > 7.2 else '' }}"><i style="width: {{ (sec.entropy / 8 * 100)|round|int }}%"></i></span> {{ sec.entropy }}</td>
+          <td><span class="ebar {{ 'hot' if sec.entropy > 7.2 else '' }}"><i data-w="{{ (sec.entropy / 8 * 100)|round|int }}"></i></span> {{ sec.entropy }}</td>
           <td>
             {% if sec.executable %}<span class="flag {{ 'hot' if sec.writable else '' }}">X</span>{% endif %}
             {% if sec.writable %}<span class="flag {{ 'hot' if sec.executable else '' }}">W</span>{% endif %}
@@ -118,8 +170,8 @@
     </table>
     <p class="muted small">X = executable, W = writable. Entropy bars turn red above 7.2.</p>
 
-    <h3>Imports ({{ d.import_count }})</h3>
-    {% for dll, funcs in d.imports.items() %}
+    <h3>Imports ({{ d.get('import_count', 0) }})</h3>
+    {% for dll, funcs in (d.get('imports') or {}).items() %}
       <details><summary><code>{{ dll }}</code> <span class="muted">{{ funcs|length }}</span></summary><p class="funcs">{{ funcs|join(', ') }}</p></details>
     {% else %}<p class="muted">None.</p>{% endfor %}
 
@@ -141,7 +193,7 @@
 </section>
 
 {# ---- YARA ---- #}
-<section class="panel" id="tab-yara" hidden>
+<section class="panel" id="tab-yara" role="tabpanel" hidden>
   {{ notice(ya, 'YARA scan') }}
   {% if ya and ya.status == 'ok' %}
     {% if not ya.findings %}<p class="muted">No rules matched.</p>
@@ -152,10 +204,10 @@
         {% for f in ya.findings %}
           <tr>
             <td>{{ sev(f.severity) }}</td>
-            <td><code>{{ f.detail.rule }}</code>
-              {% if f.detail.meta %}<details><summary>Rule metadata</summary><pre>{{ f.detail.meta | tojson(indent=2) }}</pre></details>{% endif %}</td>
-            <td>{{ f.detail.meta.get('description', '') }}</td>
-            <td>{% for t in f.detail.tags %}<span class="chip">{{ t }}</span> {% endfor %}</td>
+            <td><code>{{ f.detail.get('rule') or f.id }}</code>
+              {% if f.detail.get('meta') %}<details><summary>Rule metadata</summary><pre>{{ f.detail.get('meta') | pretty }}</pre></details>{% endif %}</td>
+            <td>{{ (f.detail.get('meta') or {}).get('description', '') }}</td>
+            <td>{% for t in f.detail.get('tags') or [] %}<span class="chip">{{ t }}</span> {% endfor %}</td>
           </tr>
         {% endfor %}
         </tbody>
@@ -164,9 +216,19 @@
   {% endif %}
 </section>
 
+{# ---- Details: every other analyzer (filetype, generic, pdf, office, ...) ---- #}
+<section class="panel" id="tab-details" role="tabpanel" hidden>
+  {% for name, env in result.analyzers.items() if name not in ('pe', 'yara') %}
+    <div class="analyzer">
+      <h3>{{ name }} <span class="chip chip-{{ env.status }}">{{ env.status }}</span></h3>
+      {{ notice(env, name ~ ' analyzer') }}
+      {% if env.status == 'ok' %}{{ render(env.data) }}{% endif %}
+    </div>
+  {% endfor %}
+</section>
+
 {# ---- Raw ---- #}
-<section class="panel" id="tab-raw" hidden><pre>{{ result | tojson(indent=2) }}</pre></section>
+<section class="panel" id="tab-raw" role="tabpanel" hidden><pre>{{ result | pretty }}</pre></section>
 
 <script id="report-data" type="application/json">{{ result | tojson }}</script>
-<button type="button" id="download" class="ghost" data-filename="{{ result.file.name ~ '.report.json' }}">Download report</button>
 {% endblock %}

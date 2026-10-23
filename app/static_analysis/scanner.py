@@ -7,9 +7,9 @@ from collections import Counter
 from .filetype_analyzer import analyze_filetype
 from .generic_analyzer import analyze_generic
 from .pdf_analyzer import analyze_pdf
+from .office_analyzer import analyze_office
 
 SCHEMA_VERSION = 1
-
 SEVERITY_ORDER = ("info", "low", "medium", "high")
 
 # Scoring model: each finding has a strength. Strengths combine as
@@ -45,6 +45,7 @@ register_analyzer("filetype", analyze_filetype)
 register_analyzer("generic", analyze_generic)
 register_analyzer("pe", analyze_pe)
 register_analyzer("pdf", analyze_pdf)
+register_analyzer("office", analyze_office)
 register_analyzer("yara", analyze_yara)
 
 def _failed(name, message):

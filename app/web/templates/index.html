@@ -1,15 +1,29 @@
 {% extends "base.html" %}
+{% block title %}Scan a file · Deep File Analysis{% endblock %}
 {% block content %}
-<h1>Scan a file</h1>
-<p class="lede">Hashes, PE structure and YARA matches. The file is analysed statically and never executed.</p>
+<section class="hero">
+  <h1>Analyse a file</h1>
+  <p class="lede">Drop in any file and get its hashes, real file type, structure and rule matches in one report.</p>
+</section>
 
 {% if error %}<p class="alert" role="alert">{{ error }}</p>{% endif %}
 
 <form id="scan-form" action="{{ url_for('web.scan') }}" method="post" enctype="multipart/form-data">
   <label class="drop" for="file">
-    <span id="drop-text">Choose a file or drop it here</span>
+    <svg class="drop-icon" viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>
+    </svg>
+    <span class="drop-title" id="drop-text">Choose a file or drop it here</span>
+    <span class="drop-sub" id="drop-sub">Any file type &middot; up to 50 MB</span>
     <input id="file" type="file" name="file" required>
   </label>
   <button id="scan-btn" type="submit">Scan file</button>
 </form>
+
+<ul class="checks">
+  <li><strong>File type</strong><span>Real type from the bytes, disguised extensions</span></li>
+  <li><strong>Windows executables</strong><span>Sections, imports, entropy, headers</span></li>
+  <li><strong>PDF &amp; Office</strong><span>Scripts, macros, remote templates</span></li>
+  <li><strong>YARA rules</strong><span>Your rule set, with severities</span></li>
+</ul>
 {% endblock %}
