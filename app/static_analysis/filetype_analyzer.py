@@ -9,14 +9,16 @@ STRICT_PE_EXTS = {".exe", ".dll", ".scr", ".sys", ".ocx", ".cpl"}
 EXEC_EXTS = {".exe", ".scr", ".com", ".pif", ".bat", ".cmd", ".js", ".jse", ".vbs",
              ".vbe", ".wsf", ".hta", ".lnk", ".ps1", ".jar", ".cpl", ".msi"}
 DECOY_EXTS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".rtf",
-              ".jpg", ".jpeg", ".png", ".gif", ".zip", ".mp3", ".mp4"}
+              ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".zip", ".rar", ".7z", ".mp3", ".mp4",
+              ".avi", ".mov", ".csv", ".html", ".htm", ".xml", ".json", ".log"}
 BIDI_CHARS = set("\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
 EXECUTABLE_TYPES = {"pe", "dos", "elf", "macho", "macho_fat", "java_class"}
 
 # type id -> (description, extensions that are normal for it; empty set = don't check)
 TYPES = {
     "pe": ("Windows executable (PE)", {".exe", ".dll", ".sys", ".scr", ".ocx", ".cpl", ".efi",
-                                       ".drv", ".mui", ".ax", ".com", ".tsp", ".mun"}),
+                                       ".drv", ".mui", ".ax", ".com", ".tsp", ".mun", ".winmd",
+                                       ".pyd", ".node", ".ime", ".acm", ".msstyles"}),
     "dos": ("DOS / legacy MZ executable", {".exe", ".com", ".sys", ".dll", ".scr", ".ovl", ".drv"}),
     "elf": ("ELF executable / library (Linux)", {".elf", ".so", ".o", ".ko", ".axf", ".prx"}),
     "macho": ("Mach-O executable (macOS)", {".dylib", ".bundle", ".o", ".macho", ".kext"}),
@@ -178,11 +180,17 @@ def analyze_filetype(path) -> dict:
             "FT_EXT_MISMATCH", "medium",
             f"Extension {ext!r} says Windows executable, but the content is: {description}",
             extension=ext, detected=tid))
-    elif expected and ext not in NEUTRAL_EXTS and ext not in expected:
-        if tid in EXECUTABLE_TYPES:
+    elif expected and ext not in NEUTRAL_EXTS and ext not in expected \
+            and not (tid == "elf" and ".so" in suffixes):  # libfoo.so.4 is a normal library name
+        if tid in EXECUTABLE_TYPES and ext in DECOY_EXTS:
             findings.append(_finding(
                 "FT_DISGUISED_EXECUTABLE", "high",
                 f"Content is {description} but the extension is {ext!r}",
+                extension=ext, detected=tid))
+        elif tid in EXECUTABLE_TYPES:
+            findings.append(_finding(
+                "FT_UNUSUAL_EXTENSION", "low",
+                f"Content is {description} but the extension is the unusual {ext!r}",
                 extension=ext, detected=tid))
         else:
             findings.append(_finding(

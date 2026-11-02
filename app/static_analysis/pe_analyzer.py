@@ -130,13 +130,21 @@ def _build_findings(data: dict) -> list:
     for s in data["sections"]:
         name = s["name"]
         if s["entropy"] > 7.2 and s["raw_size"] >= 1024:
+            # Packed malware hides its CODE. Compressed resources (images, icons) are normal.
+            if s["executable"]:
+                sev, why = "medium", "possibly packed or encrypted code"
+            elif name.lower() == ".rsrc":
+                sev, why = "info", "normal for compressed resources such as images"
+            else:
+                sev, why = "low", "possibly packed or encrypted data"
             findings.append(_finding(
-                "PE_HIGH_ENTROPY", "medium",
-                f"Section {name} has high entropy ({s['entropy']}): possibly packed or encrypted",
+                "PE_HIGH_ENTROPY", sev,
+                f"Section {name} has high entropy ({s['entropy']}): {why}",
                 section=name, entropy=s["entropy"]))
         if s["executable"] and s["writable"]:
+            # Some legitimate drivers use writable+executable sections; in other files it is a stronger sign.
             findings.append(_finding(
-                "PE_WX_SECTION", "medium",
+                "PE_WX_SECTION", "low" if data["file_type"] == "sys" else "medium",
                 f"Section {name} is both writable and executable",
                 section=name))
         if name.lower() not in STANDARD_SECTIONS:
