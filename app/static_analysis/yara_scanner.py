@@ -1,33 +1,53 @@
 import os
 import yara
+import threading
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RULES_PATH = os.path.join(BASE_DIR, "rules", "yara-rules-full.yar")
 COMPILED_PATH = os.path.join(BASE_DIR, "rules", "compiled_full.yarc")
 
 _rules = None
+_lock = threading.Lock()
+
+def _cache_is_fresh():
+    """True if the compiled cache exists and is at least as new as the .yar source."""
+    try:
+        return os.path.getmtime(COMPILED_PATH) >= os.path.getmtime(RULES_PATH)
+    except OSError:          # either file missing -> treat cache as unusable
+        return False
+
 
 def get_rules():
     global _rules
     if _rules is not None:
         return _rules
 
-    # Try the cached file if it exists and is newer than the .yar file
-    if (
-        os.path.exists(COMPILED_PATH)
-        and os.path.getmtime(COMPILED_PATH) >= os.path.getmtime(RULES_PATH)
-    ):
-        try:
-            _rules = yara.load(COMPILED_PATH)
-        except yara.Error:
-            _rules = None  # cache unreadable or from another yara-python version
+    with _lock:
+        if _rules is not None:       # another thread finished while we waited
+            return _rules
 
-    # Fall back to compiling from source and refresh the cache
-    if _rules is None:
-        _rules = yara.compile(filepath=RULES_PATH)
-        _rules.save(COMPILED_PATH)
+        rules = None
+        if _cache_is_fresh():
+            try:
+                rules = yara.load(COMPILED_PATH)
+            except yara.Error:       # unreadable, or built by another yara-python version
+                rules = None
 
-    return _rules
+        if rules is None:
+            rules = yara.compile(filepath=RULES_PATH)
+            tmp = f"{COMPILED_PATH}.{os.getpid()}.tmp"
+            try:
+                rules.save(tmp)
+                os.replace(tmp, COMPILED_PATH)   # atomic swap
+            except (OSError, yara.Error):
+                # The cache is optional: a read-only folder or locked file must not break scanning.
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+
+        _rules = rules
+        return _rules
 
 
 def scan_file(file_path, timeout=60):
@@ -72,6 +92,13 @@ def analyze_yara(path):
     """Analyzer for scanner.py: returns the standard envelope."""
     try:
         matches = scan_file(str(path))
+        if any(m["rule"] == "SCAN_TIMEOUT" for m in matches):
+            return {
+                "analyzer": "yara", 
+                "status": "error",
+                "error": "YARA scan timed out", 
+                "data": {}, 
+                "findings": []}
     except Exception as e:
         return {
             "analyzer": "yara",

@@ -1,4 +1,6 @@
 import datetime
+import threading
+
 from pathlib import Path
 from .hasher import get_hashes
 from .pe_analyzer import analyze_pe
@@ -26,7 +28,26 @@ RISK_BANDS = (("high", 60), ("medium", 25), ("low", 1))
 VALID_STATUS = ("ok", "skipped", "error")
 
 _ANALYZERS = {}
+ANALYZER_TIMEOUT = 45 # seconds per analyzer
 
+def _call_with_timeout(func, path, timeout):
+    """Run func(path) in a worker thread; raise TimeoutError if it takes too long."""
+    box = {}
+
+    def target():
+        try:
+            box["env"] = func(path)
+        except Exception as e:
+            box["exc"] = e
+
+    t = threading.Thread(target=target, daemon=True)
+    t.start()
+    t.join(timeout)
+    if t.is_alive():
+        raise TimeoutError(f"Analyzer timed out after {timeout}s")
+    if "exc" in box:
+        raise box["exc"]
+    return box["env"]
 
 def register_analyzer(name, func):
     """Register func(path) -> envelope under name (replaces an existing one)."""
@@ -54,7 +75,7 @@ def _failed(name, message):
 
 def _run_analyzer(name, func, path):
     try:
-        env = func(path)
+        env =_call_with_timeout(func, path, ANALYZER_TIMEOUT)
     except Exception as e:
         return _failed(name, f"{type(e).__name__}: {e}")
     if not isinstance(env, dict):

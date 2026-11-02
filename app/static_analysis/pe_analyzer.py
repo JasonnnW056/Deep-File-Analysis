@@ -2,15 +2,17 @@
 
 import datetime
 from pathlib import Path
-
 import pefile
+import re
 
 ANALYZER_NAME = "pe"
 
 IMAGE_SCN_MEM_EXECUTE = 0x20000000
 IMAGE_SCN_MEM_WRITE = 0x80000000
 MAX_PE_SIZE = 256 * 1024 * 1024
+MAX_CHECKSUM_SIZE = 32 * 1024 * 1024
 MAX_LIST_ITEMS = 500
+
 
 
 STANDARD_SECTIONS = {
@@ -20,6 +22,8 @@ STANDARD_SECTIONS = {
     "init", "page",
     "init", "page",
     "fothk", ".fothk",
+    # MinGW / GCC toolchains
+    ".xdata", ".eh_fram", ".ctors", ".dtors",
 }
 
 # Strong: rarely needed by ordinary programs. Weak: used by almost everything.
@@ -147,7 +151,7 @@ def _build_findings(data: dict) -> list:
                 "PE_WX_SECTION", "low" if data["file_type"] == "sys" else "medium",
                 f"Section {name} is both writable and executable",
                 section=name))
-        if name.lower() not in STANDARD_SECTIONS:
+        if name.lower() not in STANDARD_SECTIONS and not re.fullmatch(r"/\d+", name):
             findings.append(_finding(
                 "PE_ODD_SECTION_NAME", "low",
                 f"Non-standard section name: {name!r}",
@@ -271,7 +275,7 @@ def analyze_pe(path, verify_checksum=True) -> dict:
             "version_info": _parse_version_info(pe),
             "has_signature": sec_dir.Size > 0,  # presence only; NOT validated
             "overlay_size": (file_size - overlay_offset) if overlay_offset else 0,
-            "checksum_valid":pe.verify_checksum() if verify_checksum else None,
+            "checksum_valid": pe.verify_checksum() if verify_checksum and file_size <= MAX_CHECKSUM_SIZE else None,
             "parser_warnings": [str(w) for w in pe.get_warnings()[:10]],
         }
         findings = _build_findings(data)

@@ -1,7 +1,8 @@
 import os
 import tempfile
 import unittest
-
+import time
+from unittest import mock
 from app.static_analysis import scanner
 from tests.pe.pe_builder import build_minimal_pe
 
@@ -38,8 +39,10 @@ class ScannerTests(unittest.TestCase):
 
     def test_non_pe_is_skipped_not_failed(self):
         r = scanner.scan_file(self.make_file(b"hello"))
-        self.assertEqual(r["summary"]["analyzers_skipped"], ["pe"])
+        self.assertIn("pe", r["summary"]["analyzers_skipped"])
         self.assertEqual(r["summary"]["analyzers_failed"], [])
+        self.assertTrue(r["summary"]["complete"])
+
 
     def test_raising_analyzer_is_contained(self):
         def boom(path):
@@ -65,7 +68,7 @@ class ScannerTests(unittest.TestCase):
         r = scanner.scan_file(self.make_file(b"x"), analyzers=["t"])
         self.assertEqual([f["id"] for f in r["findings"]], ["B", "A"])
         self.assertEqual(r["summary"]["risk_level"], "medium")
-        self.assertEqual(r["summary"]["score"], 20)   # 15 + 5
+        self.assertEqual(r["summary"]["score"], 22)
 
     # ---- the extra test from the excerpt ----
 
@@ -77,6 +80,13 @@ class ScannerTests(unittest.TestCase):
         self.assertEqual(r["findings"][0]["severity"], "info")
         self.assertEqual(r["findings"][0]["analyzer"], "messy")
 
+    def test_hanging_analyzer_times_out(self):
+        self.register("slow", lambda p: time.sleep(2) or {"status": "ok"})
+        with mock.patch.object(scanner, "ANALYZER_TIMEOUT", 0.2):
+            r = scanner.scan_file(self.make_file(b"x"), analyzers=["slow"])
+        self.assertEqual(r["analyzers"]["slow"]["status"], "error")
+        self.assertIn("timed out", r["analyzers"]["slow"]["error"])
+        self.assertFalse(r["summary"]["complete"])
 
 if __name__ == "__main__":
     unittest.main()

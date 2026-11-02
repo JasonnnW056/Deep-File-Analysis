@@ -23,7 +23,7 @@ if (dl) {
     const a = Object.assign(document.createElement('a'),
       { href: url, download: dl.dataset.filename || 'report.json' });
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 }
 
