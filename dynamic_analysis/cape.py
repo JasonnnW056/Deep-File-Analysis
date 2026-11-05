@@ -42,7 +42,6 @@ class cape_client:
             if response.status_code != 429:
                 break
             if attempt >= self.max_retries:
-                print("error")
                 raise detonation_error(
                     f"CAPE throttled {url} (429) and {self.max_retries} retries did not solve the issue. Raise this user limit in CAPE's admin page"
                 )
@@ -51,8 +50,7 @@ class cape_client:
         try:
             body= response.json()
         except ValueError:
-            print("Error")
-            # raise DetonationError(f"{response.status_code} from {url}: Response was not in JSON format")
+            raise detonation_error(f"{response.status_code} from {url}: Response was not in JSON format")
 
         failed= response.status_code >= 400 or (
             isinstance(body, dict) and body.get("error") is True
@@ -61,7 +59,7 @@ class cape_client:
             msg= body
             if isinstance(body, dict):
                 msg= body.get("error_value") or body.get("data") or body.get("data") or body
-            # raise DetonationError(f"{response.status_code} from {url}: {msg}")
+            raise detonation_error(f"{response.status_code} from {url}: {msg}")
         return body
 
     @staticmethod
@@ -151,10 +149,9 @@ def normalize_report(report:dict, task_id:int)-> sandbox_report:
         })
 
     return sandbox_report(
-        backend="cape",
         task_id=str(info.get("id", task_id)),
-        score=report.get("malscore", info.get("score")),
-        score_max=10.0,
+        cape_score=report.get("malscore", info.get("score")),
+        max_score=10.0,
         file={
             "name": target.get("name"),
             "size": target.get("size"),
@@ -163,8 +160,8 @@ def normalize_report(report:dict, task_id:int)-> sandbox_report:
             "sha1": target.get("sha1"),
             "sha256": target.get("sha256"),
         },
-        duration=info.get("duration"),
-        detections=report.get("detections"),
+        detonation_duration=info.get("duration"),
+        malware_detected=report.get("detections"),
         signatures=signatures,
         ttps=ttps,
         behavior={
@@ -199,10 +196,35 @@ class cape_backend():
     def detonate(self, path:str | Path,
                  *, timeout:int= 120, status:status_callback| None=None)-> sandbox_report:
         path= Path(path)
-        # if not path.is_file():
-        #     raise detonation_error(f"File is not valid")    
-    
+        if not path.is_file():
+            raise detonation_error(f"File is not valid") 
+        start_timer= time.monotonic()
+        task_id= self.client.submit_file(path, timeout=timeout, **self.submit_options)
+        if status:
+            status(f"Submitted file. Task id= {task_id}")
+
+        deadline= start_timer+ timeout+ self.extra_time
+        last_status= None
+
+        while True:
+            current_status= self.client.get_status(task_id)
+            if current_status != last_status:
+                last_status= current_status
+                if status:
+                    status(current_status)
+            if current_status in STATUS_REPORTED:
+                break
+            if current_status in STATUS_FAILED:
+                raise detonation_error(f"CAPE task {task_id} ended with status {current_status}")
+            if time.monotonic()> deadline:
+                raise detonation_timeout(f"CAPE task {task_id} still {current_status} after {deadline}s")
+            time.sleep(self.poll_interval)
+
+        report= self.client.get_report(task_id)
+        result= normalize_report(report, task_id)
+        result.elapsed_seconds= round(time.monotonic()-start_timer, 2)
+        return result
      
-client= cape_client("http://localhost:8000", token=None)
-task= client.submit_file(Path("/home/jason/test.bat"))
-print(task)
+# client= cape_client("http://localhost:8000", token=None)
+# task= client.submit_file(Path("/home/jason/test.bat"))
+# print(task)
