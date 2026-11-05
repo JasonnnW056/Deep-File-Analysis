@@ -10,6 +10,7 @@ from .filetype_analyzer import analyze_filetype
 from .generic_analyzer import analyze_generic
 from .pdf_analyzer import analyze_pdf
 from .office_analyzer import analyze_office
+from app.intel.virustotal import analyze_virustotal
 
 SCHEMA_VERSION = 1
 SEVERITY_ORDER = ("info", "low", "medium", "high")
@@ -68,6 +69,7 @@ register_analyzer("pe", analyze_pe)
 register_analyzer("pdf", analyze_pdf)
 register_analyzer("office", analyze_office)
 register_analyzer("yara", analyze_yara)
+register_analyzer("virustotal", analyze_virustotal)
 
 def _failed(name, message):
     return {"analyzer": name, "status": "error", "error": message, "data": {}, "findings": []}
