@@ -5,6 +5,7 @@ import os
 import urllib.error
 import urllib.request
 from pathlib import Path
+from app.static_analysis.common import make_helpers
 
 from app.static_analysis.hasher import get_hashes
 
@@ -21,15 +22,7 @@ try:
 except ImportError:
     pass
 
-def _result(status, error=None, data=None, findings=None):
-    return {"analyzer": "virustotal", "status": status, "error": error,
-            "data": data or {}, "findings": findings or []}
-
-
-def _finding(fid, severity, message, **detail):
-    return {"id": fid, "analyzer": "virustotal", "severity": severity,
-            "message": message, "detail": detail}
-
+_result, _finding = make_helpers("virustotal")
 
 def _lookup(sha256, key):
     req = urllib.request.Request(API_URL + sha256,

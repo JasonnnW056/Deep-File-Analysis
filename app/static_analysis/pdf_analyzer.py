@@ -5,6 +5,7 @@ import re
 import zlib
 from collections import Counter
 from pathlib import Path
+from .common import make_helpers
 
 ANALYZER_NAME = "pdf"
 
@@ -28,14 +29,15 @@ _JS_KEY = re.compile(rb"/(?:JS|JavaScript)(?![A-Za-z0-9])")
 _DOC_LEVEL_JS = re.compile(rb"/JavaScript\s*(?:\d+\s+\d+\s+R|<<)")
 
 
-def _result(status, error=None, data=None, findings=None):
-    return {"analyzer": ANALYZER_NAME, "status": status, "error": error,
-            "data": data or {}, "findings": findings or []}
+_result, _finding = make_helpers("pdf_analyzer")
+# def _result(status, error=None, data=None, findings=None):
+#     return {"analyzer": ANALYZER_NAME, "status": status, "error": error,
+#             "data": data or {}, "findings": findings or []}
 
 
-def _finding(fid, severity, message, **detail):
-    return {"id": fid, "analyzer": ANALYZER_NAME, "severity": severity,
-            "message": message, "detail": detail}
+# def _finding(fid, severity, message, **detail):
+#     return {"id": fid, "analyzer": ANALYZER_NAME, "severity": severity,
+#             "message": message, "detail": detail}
 
 
 def _printable(b: bytes) -> str:

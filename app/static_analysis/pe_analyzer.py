@@ -4,6 +4,8 @@ import datetime
 from pathlib import Path
 import pefile
 import re
+from .common import make_helpers
+
 
 ANALYZER_NAME = "pe"
 
@@ -42,25 +44,25 @@ NOTABLE_APIS = STRONG_APIS | WEAK_APIS
 
 
 # ---------- envelope helpers ----------
+_result, _finding = make_helpers("pe_analyzer")
+# def _result(status, error=None, data=None, findings=None):
+#     return {
+#         "analyzer": ANALYZER_NAME,
+#         "status": status,
+#         "error": error,
+#         "data": data or {},
+#         "findings": findings or [],
+#     }
 
-def _result(status, error=None, data=None, findings=None):
-    return {
-        "analyzer": ANALYZER_NAME,
-        "status": status,
-        "error": error,
-        "data": data or {},
-        "findings": findings or [],
-    }
 
-
-def _finding(fid, severity, message, **detail):
-    return {
-        "id": fid,
-        "analyzer": ANALYZER_NAME,
-        "severity": severity,
-        "message": message,
-        "detail": detail,
-    }
+# def _finding(fid, severity, message, **detail):
+#     return {
+#         "id": fid,
+#         "analyzer": ANALYZER_NAME,
+#         "severity": severity,
+#         "message": message,
+#         "detail": detail,
+#     }
 
 
 # ---------- parsing helpers ----------

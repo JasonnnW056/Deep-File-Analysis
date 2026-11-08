@@ -5,6 +5,7 @@ import ipaddress
 import math
 import re
 from pathlib import Path
+from .common import make_helpers
 
 ANALYZER_NAME = "generic"
 
@@ -66,15 +67,16 @@ _INDICATORS = [(i, s, d, re.compile(rx), n) for i, s, d, rx, n in _INDICATORS]
 _DOS_STUBS = (b"This program cannot be run in DOS mode",
               b"This program must be run under Win32")
 
+_result, _finding = make_helpers("generic_analyzer")
 
-def _result(status, error=None, data=None, findings=None):
-    return {"analyzer": ANALYZER_NAME, "status": status, "error": error,
-            "data": data or {}, "findings": findings or []}
+# def _result(status, error=None, data=None, findings=None):
+#     return {"analyzer": ANALYZER_NAME, "status": status, "error": error,
+#             "data": data or {}, "findings": findings or []}
 
 
-def _finding(fid, severity, message, **detail):
-    return {"id": fid, "analyzer": ANALYZER_NAME, "severity": severity,
-            "message": message, "detail": detail}
+# def _finding(fid, severity, message, **detail):
+#     return {"id": fid, "analyzer": ANALYZER_NAME, "severity": severity,
+#             "message": message, "detail": detail}
 
 
 def _entropy(buf: bytes) -> float:

@@ -1,40 +1,54 @@
 # office_analyzer.py
+# Static triage of Microsoft Office files (never opens or runs them).
+# Handles three formats: modern OOXML (.docx/.xlsx/.pptx), legacy OLE2 (.doc/.xls/.ppt) and RTF.
+# Registered in scanner.py as the "office" analyzer; entry point is analyze_office().
+
+import re
 import re
 import zipfile
 from collections import Counter
 from pathlib import Path
+from .common import make_helpers
 
 ANALYZER_NAME = "office"
 
+# First 8 bytes of every legacy Office file (.doc, .xls, .ppt)
 OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
-MAX_READ = 64 * 1024 * 1024
-MAX_ENTRIES = 5000
-MAX_XML_READ = 4 * 1024 * 1024
-MAX_LIST = 50
+
+# Safety limits, so one huge or hostile file cannot exhaust memory or time
+MAX_READ = 64 * 1024 * 1024        # max bytes read from the file
+MAX_ENTRIES = 5000                 # max files looked at inside a ZIP package
+MAX_XML_READ = 4 * 1024 * 1024     # max bytes read from one XML part
+MAX_LIST = 50                      # max items kept in any list in the report
+
+# File extensions that are dangerous if found embedded inside a document
 EXEC_EXTS = (".exe", ".scr", ".dll", ".js", ".jse", ".vbs", ".vbe", ".bat", ".cmd",
              ".ps1", ".hta", ".lnk", ".jar", ".msi", ".cpl", ".com", ".pif", ".wsf")
 
+# Regexes used to read .rels files without a full XML parser
 _REL_TAG = re.compile(rb"<Relationship\b[^>]*>", re.I)
 _ATTR = re.compile(rb'([A-Za-z:]+)\s*=\s*"([^"]*)"')
+
+# DDE / DDEAUTO fields in Word: they can run commands when the document is opened
 _DDE = re.compile(rb'(?:<w:instrText[^>]*>|w:instr=")\s*(DDEAUTO|DDE)\b')
 
 
-def _result(status, error=None, data=None, findings=None):
-    return {"analyzer": ANALYZER_NAME, "status": status, "error": error,
-            "data": data or {}, "findings": findings or []}
+_result, _finding = make_helpers("office_analyzer")
+# def _result(status, error=None, data=None, findings=None):
+#     return {"analyzer": ANALYZER_NAME, "status": status, "error": error,
+#             "data": data or {}, "findings": findings or []}
 
 
-def _finding(fid, severity, message, **detail):
-    return {"id": fid, "analyzer": ANALYZER_NAME, "severity": severity,
-            "message": message, "detail": detail}
+# def _finding(fid, severity, message, **detail):
+#     return {"id": fid, "analyzer": ANALYZER_NAME, "severity": severity,
+#             "message": message, "detail": detail}
 
 
 def _u16(s: str) -> bytes:
     return s.encode("utf-16-le")
 
-
-def _oletools_macros(path):
-    """Deeper macro analysis when oletools is installed. Returns None if unavailable."""
+# ---------- macro check (optional, needs oletools) ----------
+def _oletools_macros(path):                   # Deeper macro analysis when oletools is installed. Returns None if unavailable.
     try:
         from oletools.olevba import VBA_Parser
     except Exception:
@@ -78,14 +92,15 @@ def _macro_findings(info, findings):
         findings.append(_finding("OFFICE_MACRO_SUSPICIOUS", "low",
                                  "Macro uses suspicious functions", suspicious=susp))
 
-
+# ---------- new Office files (.docx / .xlsx / .pptx) ----------
+# Read one file inside ZIP. Returns empty bytes if it is missing
 def _xml_meta(zf, name):
     try:
         return zf.read(name)[:MAX_XML_READ]
     except KeyError:
         return b""
 
-
+# Check a ZIP-based Office file: macros, embedded files, external links, DDE, metadata.
 def _analyze_ooxml(path):
     try:
         zf = zipfile.ZipFile(path)
@@ -95,15 +110,17 @@ def _analyze_ooxml(path):
         names = zf.namelist()
         truncated = len(names) > MAX_ENTRIES
         names = names[:MAX_ENTRIES]
-        lower = [n.lower() for n in names]
-        if "[content_types].xml" not in lower:
+        lower = [n.lower() for n in names]         # lowercase copy for easy matching
+        if "[content_types].xml" not in lower:     # every real Office file has this
             return _result("skipped", error="ZIP archive, not an Office package")
 
         findings = []
+        # Which program made it, based on the folder names inside
         kind = ("word" if any(n.startswith("word/") for n in lower) else
                 "excel" if any(n.startswith("xl/") for n in lower) else
                 "powerpoint" if any(n.startswith("ppt/") for n in lower) else "other")
 
+        # --- macros ---
         vba = [n for n, l in zip(names, lower) if l.endswith("vbaproject.bin")]
         if vba:
             findings.append(_finding("OFFICE_VBA_MACROS", "medium",
@@ -116,11 +133,12 @@ def _analyze_ooxml(path):
             findings.append(_finding("OFFICE_ACTIVEX", "medium", "Document contains ActiveX controls",
                                      files=activex[:10]))
 
+        # --- files hidden inside the document ---
         embedded = [n for n, l in zip(names, lower) if "/embeddings/" in l and not l.endswith("/")]
         if embedded:
             exec_emb = [n for n in embedded if n.lower().endswith(EXEC_EXTS)]
             ole_emb = [n for n in embedded if n.lower().endswith((".bin", ".ole"))]
-            if exec_emb:
+            if exec_emb:                           # worst case first
                 findings.append(_finding("OFFICE_EMBEDDED_EXECUTABLE", "high",
                                          "Executable or script embedded in the document", files=exec_emb))
             elif ole_emb:
@@ -130,23 +148,25 @@ def _analyze_ooxml(path):
                 findings.append(_finding("OFFICE_EMBEDDED_FILES", "low",
                                          "Embedded files (often charts or workbooks)", files=embedded[:10]))
 
+        # --- external links: things the document loads from outside ---
         external, hyperlinks = [], []
         for n, l in zip(names, lower):
-            if not l.endswith(".rels"):
+            if not l.endswith(".rels"):            # .rels files list the document's links
                 continue
             for tag in _REL_TAG.findall(_xml_meta(zf, n)):
                 attrs = {k.decode().lower(): v.decode("utf-8", "replace") for k, v in _ATTR.findall(tag)}
                 if attrs.get("targetmode", "").lower() != "external":
-                    continue
-                rtype = attrs.get("type", "").rsplit("/", 1)[-1]
+                    continue                       # skip links that stay inside the file
+                rtype = attrs.get("type", "").rsplit("/", 1)[-1]    # e.g. "attachedTemplate"
                 target = attrs.get("target", "")
-                if rtype == "hyperlink":
+                if rtype == "hyperlink":           # normal links: saved, but no finding
                     if target not in hyperlinks and len(hyperlinks) < MAX_LIST:
                         hyperlinks.append(target)
                     continue
                 if len(external) < MAX_LIST:
                     external.append({"part": n, "type": rtype, "target": target})
 
+        # Sort external items by type, most dangerous first
         remote_tpl = [e for e in external if e["type"] == "attachedTemplate"]
         ole_ext = [e for e in external if e["type"] in ("oleObject", "package", "frame")]
         unc = [e for e in external if e["target"].lower().startswith(("\\\\", "file:", "//"))]
@@ -168,13 +188,15 @@ def _analyze_ooxml(path):
                                      "Document loads external resources (remote images or content)",
                                      items=other))
 
+        # --- DDE fields (Word only) ---
         doc = _xml_meta(zf, "word/document.xml") if kind == "word" else b""
         m = _DDE.search(doc)
         if m:
             findings.append(_finding(
-                "OFFICE_DDE", "high" if m.group(1) == b"DDEAUTO" else "medium",
+                "OFFICE_DDE", "high" if m.group(1) == b"DDEAUTO" else "medium",   # DDEAUTO runs on open
                 f"Document contains a {m.group(1).decode()} field (can run commands)"))
 
+        # --- metadata: author, dates, program (info only, no finding) ---
         meta = {}
         core = _xml_meta(zf, "docProps/core.xml") + _xml_meta(zf, "docProps/app.xml")
         for key, tag in (("creator", "dc:creator"), ("last_modified_by", "cp:lastModifiedBy"),
@@ -184,6 +206,7 @@ def _analyze_ooxml(path):
             if mm:
                 meta[key] = mm.group(1).decode("utf-8", "replace")
 
+    # Deeper macro check, run after the ZIP is closed (oletools opens the file itself)
     deep = _oletools_macros(path) if vba else None
     _macro_findings(deep, findings)
 
@@ -191,12 +214,15 @@ def _analyze_ooxml(path):
             "entries_truncated": truncated, "has_macros": bool(vba),
             "external_relationships": external, "hyperlinks": hyperlinks,
             "embedded_files": embedded[:MAX_LIST], "metadata": meta,
+            # oletools result, or a note if it is missing, or None if there are no macros
             "macro_analysis": deep if deep is not None else "oletools not installed" if vba else None}
     return _result("ok", data=data, findings=findings)
 
-
+# ---------- old Office files (.doc / .xls / .ppt) ----------
+# Check an old Office file by searching its bytes for known names.
 def _analyze_ole(raw, path):
     findings = []
+    # Which program made it, based on the main stream name
     kind = ("word" if _u16("WordDocument") in raw else
             "excel" if _u16("Workbook") in raw or _u16("Book") in raw else
             "powerpoint" if _u16("PowerPoint Document") in raw else "other")
@@ -215,9 +241,11 @@ def _analyze_ole(raw, path):
             "macro_analysis": deep if deep is not None else "oletools not installed" if has_macros else None}
     return _result("ok", data=data, findings=findings)
 
-
+# ---------- RTF files ----------
+# Check an RTF file for embedded objects, Equation Editor and remote templates."
 def _analyze_rtf(raw):
     findings = []
+    # Types of embedded objects, e.g. "Equation.3" (max 20, no repeats)
     classes = sorted({m.group(1).decode("latin-1")
                       for m in re.finditer(rb"(?i)\\objclass\s+([A-Za-z0-9_.\-]+)", raw)})[:20]
     if b"\\objdata" in raw:
@@ -236,6 +264,7 @@ def _analyze_rtf(raw):
     return _result("ok", data={"container": "rtf", "object_classes": classes}, findings=findings)
 
 
+# ---------- main entry point ----------
 def analyze_office(path) -> dict:
     path = Path(path)
     if not path.is_file():
@@ -246,12 +275,12 @@ def analyze_office(path) -> dict:
     except OSError as e:
         return _result("error", error=f"Cannot read file: {e}")
     try:
-        if raw.startswith(b"PK"):
+        if raw.startswith(b"PK"):                  # ZIP -> new Office format
             return _analyze_ooxml(path)
-        if raw.startswith(OLE_MAGIC):
+        if raw.startswith(OLE_MAGIC):              # OLE -> old Office format
             return _analyze_ole(raw, path)
-        if raw.lstrip()[:5] == b"{\\rtf":
+        if raw.lstrip()[:5] == b"{\\rtf":          # RTF (leading spaces are allowed)
             return _analyze_rtf(raw)
         return _result("skipped", error="Not an Office document")
-    except Exception as e:
+    except Exception as e:                         # one bad file must never stop a scan
         return _result("error", error=f"Unexpected parse failure: {type(e).__name__}: {e}")
