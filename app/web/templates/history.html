@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .history-table { width: 100%; border-collapse: collapse; }
+  .history-table th, .history-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #8884; }
+  .history-table code { font-size: 0.9em; }
+  .badge { padding: 2px 8px; border-radius: 10px; font-size: 0.85em; font-weight: 600; }
+  .badge-none   { background: #8883;    color: inherit; }
+  .badge-low    { background: #f1c40f33; color: #b7950b; }
+  .badge-medium { background: #e67e2233; color: #ca6f1e; }
+  .badge-high   { background: #e74c3c33; color: #cb4335; }
+</style>
+
+<h1>Scan history</h1>
+<p><a href="{{ url_for('web.index') }}">&larr; Scan another file</a></p>
+
+<div style="overflow-x: auto;">
+<table class="history-table">
+  <thead>
+    <tr>
+      <th>Time (UTC)</th>
+      <th>File</th>
+      <th>Type</th>
+      <th>SHA-256</th>
+      <th>Verdict</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td>{{ (r.created_at or '')[:19].replace('T', ' ') }}</td>
+      <td><a href="{{ url_for('web.history_item', scan_id=r.id) }}">{{ r.filename or '(unnamed)' }}</a></td>
+      <td>{{ r.file_type or '-' }}</td>
+      <td><code title="{{ r.sha256 }}">{{ (r.sha256 or '')[:16] }}&hellip;</code></td>
+      <td>
+        {% set v = r.verdict or 'none' %}
+        <span class="badge badge-{{ v }}">{{ v }}</span>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5">No scans yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+<p><small>"none" means nothing was flagged, not that the file is safe.</small></p>
+{% endblock %}

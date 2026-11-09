@@ -215,3 +215,15 @@ def analyze_generic(path) -> dict:
 
 # D:\Users\270492384\AppData\Local\Temp\dfa_test
 # C:\Windows\System32\notepad.exe
+
+if __name__ == "__main__":
+    import sys
+
+    target = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(r"C:\Windows\System32\notepad.exe")
+    files = [p for p in target.rglob("*") if p.is_file()] if target.is_dir() else [target]
+
+    for f in files:
+        res = analyze_generic(f)
+        print(f"\n== {f} [{res['status']}]")
+        for fd in res["findings"]:
+            print(f"  [{fd['severity']:6}] {fd['id']}: {fd['message']}")
