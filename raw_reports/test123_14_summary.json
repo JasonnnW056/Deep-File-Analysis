@@ -1,0 +1,79 @@
+{
+  "task_id": "14",
+  "cape_score": 4.699999999999999,
+  "max_score": 10.0,
+  "file": {
+    "name": "test123.bat",
+    "size": 69,
+    "type": "EICAR virus test files",
+    "md5": "69630e4574ec6798239b091cda43dca0",
+    "sha1": "cf8bd9dfddff007f75adf4c2be48005cea317c62",
+    "sha256": "131f95c51cc819465fa1797f6ccacf9d494aaaff46fa3eac73ae63ffbdfd8267"
+  },
+  "detonation_duration": 146,
+  "malware_detected": null,
+  "signatures": [
+    {
+      "name": "hardware_id_profiling",
+      "description": "Queries the Volume Serial Number or Physical Hardware ID, possibly for anti-sandbox, victim profiling or environmental keying",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "privilege_elevation_check",
+      "description": "Queries process token information to check for Administrator privileges or UAC elevation status",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "uses_windows_utilities",
+      "description": "Uses Windows utilities for basic functionality",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "stealth_network",
+      "description": "Network activity detected but not expressed in monitor API logs",
+      "severity": 1,
+      "ttps": []
+    },
+    {
+      "name": "queries_locale_api",
+      "description": "Queries the computer locale (possible geofencing)",
+      "severity": 1,
+      "ttps": []
+    },
+    {
+      "name": "language_check_registry",
+      "description": "Checks system language via registry key (possible geofencing)",
+      "severity": 1,
+      "ttps": []
+    }
+  ],
+  "ttps": [],
+  "behavior": {
+    "executed_commands": [
+      "C:\\Windows\\system32\\cmd.exe  /K \"C:\\Users\\JW\\AppData\\Local\\Temp\\test123.bat\""
+    ],
+    "files_written": [],
+    "files_deleted": [],
+    "registry_written": [],
+    "mutexes": [],
+    "services_created": []
+  },
+  "network": {
+    "hosts": [],
+    "domains": [
+      {
+        "domain": "www.msftconnecttest.com",
+        "ip": "23.211.242.119"
+      }
+    ],
+    "http": [],
+    "tcp_count": 0,
+    "udp_count": 35
+  },
+  "dropped_files": [],
+  "total_extracted_payloads": 0,
+  "total_seconds": null
+}

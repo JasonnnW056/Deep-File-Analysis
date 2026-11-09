@@ -1,0 +1,82 @@
+{
+  "task_id": "12",
+  "cape_score": 5.199999999999999,
+  "max_score": 10.0,
+  "file": {
+    "name": "test.bat",
+    "size": 39,
+    "type": "ASCII text, with CRLF line terminators",
+    "md5": "4fff8b79c244b2ecb275b4e34f124a3e",
+    "sha1": "aa87d1b79e0ccce4cc1b351a109c5f90c748881b",
+    "sha256": "53735172facca2144125df16f9f504c286920055d6a17b0f59ab2aee5e42db0f"
+  },
+  "detonation_duration": 146,
+  "malware_detected": null,
+  "signatures": [
+    {
+      "name": "hardware_id_profiling",
+      "description": "Queries the Volume Serial Number or Physical Hardware ID, possibly for anti-sandbox, victim profiling or environmental keying",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "privilege_elevation_check",
+      "description": "Queries process token information to check for Administrator privileges or UAC elevation status",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "suspicious_ping_use",
+      "description": "A ping command was executed with the -n argument possibly to delay analysis",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "uses_windows_utilities",
+      "description": "Uses Windows utilities for basic functionality",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "queries_locale_api",
+      "description": "Queries the computer locale (possible geofencing)",
+      "severity": 1,
+      "ttps": []
+    },
+    {
+      "name": "language_check_registry",
+      "description": "Checks system language via registry key (possible geofencing)",
+      "severity": 1,
+      "ttps": []
+    }
+  ],
+  "ttps": [],
+  "behavior": {
+    "executed_commands": [
+      "C:\\Windows\\system32\\cmd.exe  /K \"C:\\Users\\JW\\AppData\\Local\\Temp\\test.bat\"",
+      "ping  -n 5 127.0.0.1"
+    ],
+    "files_written": [
+      "\\??\\nul"
+    ],
+    "files_deleted": [],
+    "registry_written": [],
+    "mutexes": [],
+    "services_created": []
+  },
+  "network": {
+    "hosts": [],
+    "domains": [
+      {
+        "domain": "www.msftconnecttest.com",
+        "ip": "23.211.242.119"
+      }
+    ],
+    "http": [],
+    "tcp_count": 0,
+    "udp_count": 34
+  },
+  "dropped_files": [],
+  "total_extracted_payloads": 0,
+  "total_seconds": null
+}

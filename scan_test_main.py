@@ -3,7 +3,7 @@ from dynamic_analysis.backend_base import detonation_error
 from pathlib import Path
 
 def main():
-    path= Path("/home/jason/test.bat")
+    path= Path("/home/jason/test.txt")
 
     try:
         report= scan(path, status=print)

@@ -3,7 +3,7 @@ from typing import Any
 import requests
 import time
 
-from backend_base import detonation_error, detonation_timeout, sandbox_report, status_callback
+from .backend_base import detonation_error, detonation_timeout, sandbox_report, status_callback
 
 #Task status
 STATUS_REPORTED= {"reported"}
@@ -56,9 +56,11 @@ class cape_client:
             isinstance(body, dict) and body.get("error") is True
         )
         if failed:
-            msg= body
+            msg = body
             if isinstance(body, dict):
-                msg= body.get("error_value") or body.get("data") or body.get("data") or body
+                msg = body.get("error_value") or body.get("data") or body
+                if body.get("errors"):
+                    msg = f"{msg}: {body['errors']}"
             raise detonation_error(f"{response.status_code} from {url}: {msg}")
         return body
 
@@ -94,7 +96,7 @@ class cape_client:
 
         if not task_ids:
             print("Error")
-            #raise DetonationError(f"Unexpected response: {body}")
+            raise detonation_error(f"Unexpected response: {body}")
         return int(task_ids[0])
         # body= resp.json()
         # print(body)
@@ -132,7 +134,7 @@ def normalize_report(report:dict, task_id:int)-> sandbox_report:
 
     ttps= report.get("ttps") or []
     if isinstance(ttps, dict):
-        ttps= list(ttps.keys)
+        ttps= list(ttps.keys())
     else:
         #If ttps in different key name
         ttps= [t.get("ttp") if isinstance(t, dict) else t for t in ttps]
@@ -180,7 +182,7 @@ def normalize_report(report:dict, task_id:int)-> sandbox_report:
             "udp_count": len(network.get("udp", []) or []),
         },
         dropped_files=get_head(file_dropped),
-        extracted_payloads=len(((report.get("CAPE") or {}).get("payloads")) or []),
+        total_extracted_payloads=len(((report.get("CAPE") or {}).get("payloads")) or []),
         raw=report,
     )
 
@@ -217,7 +219,7 @@ class cape_backend():
             if current_status in STATUS_FAILED:
                 raise detonation_error(f"CAPE task {task_id} ended with status {current_status}")
             if time.monotonic()> deadline:
-                raise detonation_timeout(f"CAPE task {task_id} still {current_status} after {deadline}s")
+                raise detonation_timeout(f"CAPE task {task_id} still {current_status} after {timeout + self.extra_time}s")
             time.sleep(self.poll_interval)
 
         report= self.client.get_report(task_id)
