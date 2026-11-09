@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from .backend_base import sandbox_report, status_callback
 from .cape import cape_backend
+from generate_pdf import generate_report
 
 DEFAULT_TIMEOUT= 120
 
@@ -11,7 +12,9 @@ def scan(path: str|Path, *, timeout: int= DEFAULT_TIMEOUT, status: status_callba
     backend= cape_backend(base_url= os.getenv("CAPE_URL", "http://localhost:8000"),  submit_options={"options": "ignore_junk_filter=1"},)
     report= backend.detonate(path, timeout=timeout, status=status)
     save_report(report, Path(path), status)
-
+    
+    out_dir = Path(os.getenv("RAW_REPORT_DIR", "raw_reports"))
+    pdf = generate_report(report, out_dir / f"{Path(path).stem}_{report.task_id}_report.pdf")
     return report
 
 def save_report(report: sandbox_report, sample: Path, status)-> None:

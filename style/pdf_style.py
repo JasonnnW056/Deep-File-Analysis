@@ -1,10 +1,10 @@
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib import colors
-from reportlab.lib import Table, TableStyle
+from reportlab.platypus import Table, TableStyle
 VERDICT_COLORS={
-    "MALWARE": colors.red(),
-    "BENIGN": colors.green(),
-    "INCONCLUSIVE": colors.gray()
+    "MALWARE": colors.red,
+    "BENIGN": colors.green,
+    "INCONCLUSIVE": colors.gray
 }
 
 def styles() -> dict[str, ParagraphStyle]:
