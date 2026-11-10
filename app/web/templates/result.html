@@ -54,6 +54,8 @@
   <div class="who">
     <p class="eyebrow">{% if ft and ft.status == 'ok' %}{{ ft.data.description }}{% else %}File{% endif %}</p>
     <h1>{{ result.file.name }}</h1>
+    {% if result.scan_mode %}<p><span class="mode-pill">{{ 'Hybrid scan' if result.scan_mode == 'hybrid' else 'Fast scan' }}</span></p>{% endif %}
+    {% if result.mode_note %}<p class="notice">{{ result.mode_note }}</p>{% endif %}
     <p class="meta">
       {% if result.file.size is not none %}{{ "{:,}".format(result.file.size) }} bytes{% endif %}
       {% if result.hashes.get('sha256') %}<span class="dot">&middot;</span>SHA-256 <code>{{ result.hashes.sha256[:16] }}…</code>{% endif %}

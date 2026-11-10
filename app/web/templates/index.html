@@ -17,6 +17,37 @@
     <span class="drop-sub" id="drop-sub">Any file type &middot; up to 50 MB</span>
     <input id="file" type="file" name="file" required>
   </label>
+  <fieldset class="modes">
+    <legend>Choose scan mode</legend>
+    <label class="mode">
+      <input type="radio" name="mode" value="fast">
+      <span class="mode-body">
+        <span class="mode-title">Fast Scan</span>
+        <span class="mode-time">Results in seconds</span>
+        <ul>
+          <li>PE header analysis</li>
+          <li>YARA signature matching</li>
+          <li>String extraction</li>
+          <li>Import table review</li>
+        </ul>
+      </span>
+    </label>
+    <label class="mode">
+      <input type="radio" name="mode" value="hybrid" checked>
+      <span class="mode-body">
+        <span class="mode-badge">Recommended</span>
+        <span class="mode-title">Hybrid Scan</span>
+        <span class="mode-time">5&ndash;10 min &middot; Full pipeline</span>
+        <ul>
+          <li>Everything in Fast Scan</li>
+          <li>Live sandbox execution</li>
+          <li>Behavioral timeline</li>
+          <li>MITRE ATT&amp;CK mapping</li>
+          <li>VirusTotal cross-reference</li>
+        </ul>
+      </span>
+    </label>
+  </fieldset>
   <button id="scan-btn" type="submit">Scan file</button>
 </form>
 

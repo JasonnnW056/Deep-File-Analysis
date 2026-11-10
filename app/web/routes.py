@@ -82,7 +82,33 @@ def _store(report):
 
 #---------------------------------------------------------------------------------------
 
-def _scan_upload(uploaded):
+SCAN_MODES = ("fast", "hybrid")
+DEFAULT_MODE = "hybrid"
+
+
+def _get_mode():
+    """Read the requested scan mode; anything unknown falls back to the default."""
+    mode = (request.form.get("mode") or request.args.get("mode") or DEFAULT_MODE).lower()
+    return mode if mode in SCAN_MODES else DEFAULT_MODE
+
+
+def _run_hybrid_stage(path, report):
+    """Hybrid = the fast static pass plus dynamic analysis.
+
+    Plug the sandbox / behavioural timeline / MITRE mapping / VirusTotal lookup in here.
+    Until one exists, say so in the report instead of pretending it ran.
+    """
+    try:
+        from app.dynamic_analysis import run_sandbox  # not part of this repo yet
+    except ImportError:
+        report["mode_note"] = ("Hybrid scan requested, but no sandbox is configured. "
+                               "Only the static (fast) analysis was run.")
+        return
+    report["dynamic"] = run_sandbox(path)
+
+#---------------------------------------------------------------------------------------
+
+def _scan_upload(uploaded, mode=DEFAULT_MODE):
     """Save under the original name in a private temp folder, scan, delete everything.
 
     scan_file() never raises, so failures show up in report["errors"] and in each
@@ -91,8 +117,11 @@ def _scan_upload(uploaded):
     with _tmpdir() as tmpdir:
         path = os.path.join(tmpdir, _safe_name(uploaded.filename))
         uploaded.save(path)
-        report = scan_file(path)
+        report = scan_file(path)          # fast pass runs in both modes
+        if mode == "hybrid":
+            _run_hybrid_stage(path, report)
 
+    report["scan_mode"] = mode
     report["file"]["name"] = _display_name(uploaded.filename)
     report["file"].pop("path", None)  # don't leak the temp path
     _store(report)
@@ -109,7 +138,7 @@ def scan():
     uploaded = request.files.get("file")
     if not uploaded or uploaded.filename == "":
         return render_template("index.html", error="Choose a file to scan."), 400
-    return render_template("result.html", result=_scan_upload(uploaded))
+    return render_template("result.html", result=_scan_upload(uploaded, _get_mode()))
 
 
 @bp.route("/api/scan", methods=["POST"])
@@ -117,7 +146,7 @@ def api_scan():
     uploaded = request.files.get("file")
     if not uploaded:
         return jsonify(error="No file provided"), 400
-    return jsonify(_scan_upload(uploaded))
+    return jsonify(_scan_upload(uploaded, _get_mode()))
 
 @bp.route("/history", methods=["GET"])
 def history():

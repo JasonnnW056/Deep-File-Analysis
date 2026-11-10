@@ -17,14 +17,14 @@
       </span>
       <span class="brand-name">Deep File Analysis</span>
     </a>
-    <span class="tagline">Static analysis &middot; files are never executed</span>
+    <span class="tagline">Fast scan is static only &middot; Hybrid runs files in a sandbox</span>
   </header>
 
   <main class="wrap">
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="foot">A clean result does not prove a file is safe. This tool reads files; it never runs them.</footer>
+  <footer class="foot">A clean result does not prove a file is safe. Fast scans only read files; Hybrid scans execute them in an isolated sandbox.</footer>
 
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
