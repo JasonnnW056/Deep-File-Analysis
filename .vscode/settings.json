@@ -3,7 +3,11 @@
        "PYTHONDONTWRITEBYTECODE": "1"
     },
     "files.exclude": {
+      "**/__init__.py": false,
        "**/__pycache__": true
    },
-   "python-envs.defaultEnvManager": "ms-python.python:system"
+   "python-envs.defaultEnvManager": "ms-python.python:system",
+    "files.associations": {
+      "**/templates/**/*.html": "jinja-html"
+    }
 }

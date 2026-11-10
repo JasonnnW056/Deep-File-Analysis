@@ -1,0 +1,142 @@
+import os
+import re
+import tempfile
+import json
+from flask import Blueprint, abort, current_app, jsonify, render_template, request
+from app.static_analysis.scanner import scan_file
+from app.db import save_scan, get_history, get_scan
+
+
+bp = Blueprint("web", __name__)
+
+_BAD_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
+             *(f"LPT{i}" for i in range(1, 10))}
+_BIDI = re.compile("[\u202a-\u202e\u2066-\u2069]")
+
+
+def _safe_name(name):
+    """Keep the real file name (extensions matter for analysis) but make it safe to write."""
+    base = (name or "upload").replace("\\", "/").rsplit("/", 1)[-1]
+    base = _BAD_CHARS.sub("_", base).strip(" .") or "upload"
+    if base.split(".", 1)[0].upper() in _RESERVED:
+        base = "_" + base
+    if len(base) > 120:
+        root, ext = os.path.splitext(base)
+        base = root[:100] + ext[:20]
+    return base
+
+
+def _display_name(name):
+    """Show the uploaded name, but never let direction-override characters spoof it."""
+    return _BIDI.sub(lambda m: f"<U+{ord(m.group()):04X}>", name or "upload")
+
+
+def _tmpdir():
+    try:
+        return tempfile.TemporaryDirectory(prefix="dfa_", ignore_cleanup_errors=True)
+    except TypeError:  # Python < 3.10
+        return tempfile.TemporaryDirectory(prefix="dfa_")
+
+# =============================================================================
+# SUPABASE: HASH & REPORT HISTORY
+# Everything related to Supabase lives in this section.
+#   - _json_safe / _summarize / _store : save a finished scan (called from _scan_upload)
+#   - /history, /history/<id>          : list and re-open past scans
+# The only other Supabase touchpoint is the `_store(report)` line in _scan_upload().
+# =============================================================================
+
+def _json_safe(report): # Make the report storable as jsonb: bytes/sets -> strings, and strip NUL chars (Postgres jsonb rejects \\u0000, and malware metadata often contains them).
+    text = json.dumps(report, default=str)
+    return json.loads(text.replace("\\u0000", ""))
+
+
+def _file_type(report):   # File type lives in the filetype analyzer's data block, not in report["file"].
+    env = report.get("analyzers", {}).get("filetype") or {}
+    data = env.get("data") or {}
+    return data.get("description") or data.get("detected_type")
+
+
+def _summarize(report):   # Pull the indexed columns out of the report (matches scan_file() output).
+    f = report.get("file", {})
+    summary = report.get("summary", {})
+    return {
+        "filename": f.get("name"),
+        "file_type": _file_type(report),
+        "file_size": f.get("size"),
+        "hashes": report.get("hashes") or {},
+        "verdict": summary.get("risk_level"),  # none / low / medium / high
+    }
+
+def _store(report):
+    """Best-effort save. A Supabase outage must never break the scan."""
+    try:
+        s = _summarize(report)
+        if not s["hashes"].get("sha256"):
+            current_app.logger.warning("No sha256 in report; skipping history save")
+            return
+        save_scan(s["filename"], s["file_type"], s["file_size"],
+                  s["hashes"], s["verdict"], _json_safe(report))
+    except Exception as e:
+        current_app.logger.warning("Failed to save history: %s", e)
+
+#---------------------------------------------------------------------------------------
+
+def _scan_upload(uploaded):
+    """Save under the original name in a private temp folder, scan, delete everything.
+
+    scan_file() never raises, so failures show up in report["errors"] and in each
+    analyzer's status instead of as a 500 page.
+    """
+    with _tmpdir() as tmpdir:
+        path = os.path.join(tmpdir, _safe_name(uploaded.filename))
+        uploaded.save(path)
+        report = scan_file(path)
+
+    report["file"]["name"] = _display_name(uploaded.filename)
+    report["file"].pop("path", None)  # don't leak the temp path
+    _store(report)
+    return report
+
+
+@bp.route("/", methods=["GET"])
+def index():
+    return render_template("index.html")
+
+
+@bp.route("/scan", methods=["POST"])
+def scan():
+    uploaded = request.files.get("file")
+    if not uploaded or uploaded.filename == "":
+        return render_template("index.html", error="Choose a file to scan."), 400
+    return render_template("result.html", result=_scan_upload(uploaded))
+
+
+@bp.route("/api/scan", methods=["POST"])
+def api_scan():
+    uploaded = request.files.get("file")
+    if not uploaded:
+        return jsonify(error="No file provided"), 400
+    return jsonify(_scan_upload(uploaded))
+
+@bp.route("/history", methods=["GET"])
+def history():
+    try:
+        rows = get_history()
+    except Exception as e:
+        current_app.logger.warning("History unavailable: %s", e)
+        rows = []
+    return render_template("history.html", rows=rows)
+
+
+@bp.route("/history/<scan_id>", methods=["GET"])
+def history_item(scan_id):
+    try:
+        row = get_scan(scan_id)
+    except Exception:
+        abort(404)
+    return render_template("result.html", result=row["report"])
+
+@bp.errorhandler(413)
+def too_large(_):
+    return render_template("index.html", error="File is larger than 50 MB."), 413
