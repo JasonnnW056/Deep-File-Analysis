@@ -6,6 +6,8 @@ from flask import Blueprint, abort, current_app, jsonify, render_template, reque
 from app.static_analysis.scanner import scan_file
 from app.db import save_scan, get_history, get_scan
 
+from dynamic_analysis.scan import dynamic_scan
+from dynamic_analysis.backend_base import detonation_error
 
 bp = Blueprint("web", __name__)
 
@@ -99,12 +101,12 @@ def _run_hybrid_stage(path, report):
     Until one exists, say so in the report instead of pretending it ran.
     """
     try:
-        from app.dynamic_analysis import run_sandbox  # not part of this repo yet
+        dynamic_report= dynamic_scan(path,status=print)
     except ImportError:
         report["mode_note"] = ("Hybrid scan requested, but no sandbox is configured. "
                                "Only the static (fast) analysis was run.")
         return
-    report["dynamic"] = run_sandbox(path)
+    report["dynamic"] = dynamic_report
 
 #---------------------------------------------------------------------------------------
 
