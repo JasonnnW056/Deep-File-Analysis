@@ -1,13 +1,20 @@
 import os
 import re
+import requests
 import tempfile
 import json
 from flask import Blueprint, abort, current_app, jsonify, render_template, request
 from app.static_analysis.scanner import scan_file
 from app.db import save_scan, get_history, get_scan
-
-from dynamic_analysis.scan import dynamic_scan
-from dynamic_analysis.backend_base import detonation_error
+from pathlib import Path
+from dynamic_analysis.backend_base import sandbox_report
+try:
+    from dynamic_analysis.scan import dynamic_scan
+    from dynamic_analysis.backend_base import detonation_error, detonation_timeout
+    from generate_pdf import generate_report, set_verdict
+except ImportError:
+    dynamic_scan = None
+    detonation_error = detonation_timeout = Exception  
 
 bp = Blueprint("web", __name__)
 
@@ -93,6 +100,13 @@ def _get_mode():
     mode = (request.form.get("mode") or request.args.get("mode") or DEFAULT_MODE).lower()
     return mode if mode in SCAN_MODES else DEFAULT_MODE
 
+def is_sandbox_up():
+    url = os.getenv("CAPE_URL", "http://localhost:8000").rstrip("/") + "/apiv2/"
+    try:
+        requests.get(url, timeout=3)   # any HTTP response means the server is up
+        return True
+    except requests.RequestException:
+        return False
 
 def _run_hybrid_stage(path, report):
     """Hybrid = the fast static pass plus dynamic analysis.
@@ -100,13 +114,40 @@ def _run_hybrid_stage(path, report):
     Plug the sandbox / behavioural timeline / MITRE mapping / VirusTotal lookup in here.
     Until one exists, say so in the report instead of pretending it ran.
     """
-    try:
-        dynamic_report= dynamic_scan(path,status=print)
-    except ImportError:
-        report["mode_note"] = ("Hybrid scan requested, but no sandbox is configured. "
+
+    if dynamic_scan is None:
+        report["mode_note"] = ("Hybrid scan requested, but the sandbox is not installed. "
                                "Only the static (fast) analysis was run.")
         return
-    report["dynamic"] = dynamic_report
+
+    if not is_sandbox_up():
+        report["mode_note"] = "Sandbox is offline. Showing static analysis only."
+        return
+    
+    try:
+        sb_report = dynamic_scan(path, status=print)             # sandbox_report object
+    except detonation_timeout as e:
+        current_app.logger.warning("Sandbox timed out: %s", e)
+        report["mode_note"] = f"Sandbox timed out: {e}. Showing static analysis only."
+        return
+    except detonation_error as e:
+        current_app.logger.warning("Sandbox error: %s", e)
+        report["mode_note"] = f"Sandbox could not analyse this file: {e}. Showing static analysis only."
+        return
+    except Exception as e:
+        current_app.logger.exception("Dynamic analysis failed")
+        report["mode_note"] = f"Sandbox stage failed ({type(e).__name__}). Showing static analysis only."
+        return
+
+    report_dict = sb_report.to_dict()                                    # plain dict, no raw CAPE report
+    try:
+        v = set_verdict(sb_report, report)
+        report_dict["verdict"] = {"label": v.label, "confidence": v.confidence_score, "reasons": v.reasons}
+    except Exception:
+        current_app.logger.exception("Verdict failed")
+
+    report["dynamic"] = report_dict
+    return sb_report
 
 #---------------------------------------------------------------------------------------
 
@@ -120,10 +161,18 @@ def _scan_upload(uploaded, mode=DEFAULT_MODE):
         path = os.path.join(tmpdir, _safe_name(uploaded.filename))
         uploaded.save(path)
         report = scan_file(path)          # fast pass runs in both modes
+        report["scan_mode"] = mode
+        dynamic_report = None
         if mode == "hybrid":
-            _run_hybrid_stage(path, report)
-
-    report["scan_mode"] = mode
+            dynamic_report=_run_hybrid_stage(path, report)
+        try:                                                  # a PDF failure must not lose the results
+            out_dir = Path(os.getenv("RAW_REPORT_DIR", "raw_reports"))
+            sha = (report.get("hashes") or {}).get("sha256", "unknown")
+            name = dynamic_report.task_id if dynamic_report else sha[:12]
+            generate_report(dynamic_report, out_dir / f"{name}_report.pdf", static_report=report)
+        except Exception:
+            current_app.logger.exception("PDF generation failed")
+    
     report["file"]["name"] = _display_name(uploaded.filename)
     report["file"].pop("path", None)  # don't leak the temp path
     _store(report)
