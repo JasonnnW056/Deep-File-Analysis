@@ -20,6 +20,13 @@
   <button id="scan-btn" type="submit">Scan file</button>
 </form>
 
+<p class="alt-action">
+  <a class="btn-link" href="{{ url_for('web.history') }}">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    View scan history
+  </a>
+</p>
+
 <ul class="checks">
   <li><strong>File type</strong><span>Real type from the bytes, disguised extensions</span></li>
   <li><strong>Windows executables</strong><span>Sections, imports, entropy, headers</span></li>

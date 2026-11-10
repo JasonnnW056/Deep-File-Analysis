@@ -137,8 +137,7 @@ def _classify_zip(path: Path) -> str:
     return "zip"
 
 
-def detect_type(path) -> str:
-    """Return a type id from TYPES, based on file content."""
+def detect_type(path) -> str:   #Return a type id from TYPES, based on file content.
     path = Path(path)
     size = path.stat().st_size
     if size == 0:

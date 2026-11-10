@@ -1,47 +1,93 @@
 {% extends "base.html" %}
+{% block title %}Scan history · Deep File Analysis{% endblock %}
+
 {% block content %}
-<style>
-  .history-table { width: 100%; border-collapse: collapse; }
-  .history-table th, .history-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #8884; }
-  .history-table code { font-size: 0.9em; }
-  .badge { padding: 2px 8px; border-radius: 10px; font-size: 0.85em; font-weight: 600; }
-  .badge-none   { background: #8883;    color: inherit; }
-  .badge-low    { background: #f1c40f33; color: #b7950b; }
-  .badge-medium { background: #e67e2233; color: #ca6f1e; }
-  .badge-high   { background: #e74c3c33; color: #cb4335; }
-</style>
+{% set ns = namespace(none=0, low=0, medium=0, high=0) %}
+{% for r in rows %}
+  {% set v = r.verdict or 'none' %}
+  {% if v == 'high' %}{% set ns.high = ns.high + 1 %}
+  {% elif v == 'medium' %}{% set ns.medium = ns.medium + 1 %}
+  {% elif v == 'low' %}{% set ns.low = ns.low + 1 %}
+  {% else %}{% set ns.none = ns.none + 1 %}{% endif %}
+{% endfor %}
 
-<h1>Scan history</h1>
-<p><a href="{{ url_for('web.index') }}">&larr; Scan another file</a></p>
+<a class="back" href="{{ url_for('web.index') }}">&larr; Scan another file</a>
 
-<div style="overflow-x: auto;">
-<table class="history-table">
-  <thead>
-    <tr>
-      <th>Time (UTC)</th>
-      <th>File</th>
-      <th>Type</th>
-      <th>SHA-256</th>
-      <th>Verdict</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for r in rows %}
-    <tr>
-      <td>{{ (r.created_at or '')[:19].replace('T', ' ') }}</td>
-      <td><a href="{{ url_for('web.history_item', scan_id=r.id) }}">{{ r.filename or '(unnamed)' }}</a></td>
-      <td>{{ r.file_type or '-' }}</td>
-      <td><code title="{{ r.sha256 }}">{{ (r.sha256 or '')[:16] }}&hellip;</code></td>
-      <td>
-        {% set v = r.verdict or 'none' %}
-        <span class="badge badge-{{ v }}">{{ v }}</span>
-      </td>
-    </tr>
-    {% else %}
-    <tr><td colspan="5">No scans yet.</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="page-head">
+  <h1>Scan history</h1>
+  <p class="muted">{{ rows|length }} scan{{ '' if rows|length == 1 else 's' }} recorded &middot; newest first</p>
 </div>
-<p><small>"none" means nothing was flagged, not that the file is safe.</small></p>
+
+<section class="stats" aria-label="Summary">
+  <div class="stat"><span class="stat-num">{{ rows|length }}</span><span class="stat-label">Total</span></div>
+  <div class="stat risk-high"><span class="stat-num">{{ ns.high }}</span><span class="stat-label">High</span></div>
+  <div class="stat risk-medium"><span class="stat-num">{{ ns.medium }}</span><span class="stat-label">Medium</span></div>
+  <div class="stat risk-low"><span class="stat-num">{{ ns.low }}</span><span class="stat-label">Low</span></div>
+  <div class="stat risk-none"><span class="stat-num">{{ ns.none }}</span><span class="stat-label">No findings</span></div>
+</section>
+
+<div class="toolbar">
+  <input id="h-search" type="search" placeholder="Search file name, type or hash…" aria-label="Search history">
+  <div class="seg" id="h-filter" role="group" aria-label="Filter by verdict">
+    <button type="button" class="on" data-v="all">All</button>
+    <button type="button" data-v="high">High</button>
+    <button type="button" data-v="medium">Medium</button>
+    <button type="button" data-v="low">Low</button>
+    <button type="button" data-v="none">None</button>
+  </div>
+</div>
+
+<div class="panel history-panel">
+  <table class="grid history" id="h-table">
+    <thead>
+      <tr>
+        <th>File</th>
+        <th>Type</th>
+        <th>SHA-256</th>
+        <th>Scanned (UTC)</th>
+        <th>Verdict</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+      {% set v = r.verdict or 'none' %}
+      <tr data-verdict="{{ v }}"
+          data-search="{{ ((r.filename or '') ~ ' ' ~ (r.file_type or '') ~ ' ' ~ (r.sha256 or ''))|lower }}">
+        <td class="h-file">
+          <a href="{{ url_for('web.history_item', scan_id=r.id) }}">{{ r.filename or '(unnamed)' }}</a>
+          {% if r.size is defined and r.size is not none %}
+            <span class="muted small">{{ "{:,}".format(r.size) }} bytes</span>
+          {% endif %}
+        </td>
+        <td>{{ r.file_type or '–' }}</td>
+        <td>
+          {% if r.sha256 %}
+            <code title="{{ r.sha256 }}">{{ r.sha256[:16] }}…</code>
+            <button type="button" class="copy" data-copy="{{ r.sha256 }}" aria-label="Copy full SHA-256">Copy</button>
+          {% else %}–{% endif %}
+        </td>
+        <td>
+          {% set t = (r.created_at or '')[:19] %}
+          <span>{{ t[:10] }}</span> <span class="muted">{{ t[11:] }}</span>
+        </td>
+        <td>
+          <span class="sev sev-{{ 'info' if v == 'none' else v }}">{{ 'none' if v == 'none' else v }}</span>
+          {% if r.score is defined and r.score is not none %}
+            <span class="mini risk-{{ v }}" title="Risk score {{ r.score }}/100"><i style="width: {{ r.score }}%"></i></span>
+            <span class="muted small">{{ r.score }}</span>
+          {% endif %}
+          {% if r.finding_count is defined and r.finding_count is not none %}
+            <span class="muted small">&middot; {{ r.finding_count }} finding{{ '' if r.finding_count == 1 else 's' }}</span>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="muted empty">No scans yet. <a href="{{ url_for('web.index') }}">Scan your first file</a>.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted empty" id="h-empty" hidden>No scans match your filter.</p>
+</div>
+
+<p class="muted small">"None" means nothing was flagged, not that the file is safe.</p>
 {% endblock %}

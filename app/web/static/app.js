@@ -57,3 +57,41 @@ if (form) {
   });
   form.addEventListener('submit', () => { btn.disabled = true; btn.textContent = 'Scanning...'; });
 }
+
+// History: search, verdict filter, copy hash
+const hTable = document.getElementById('h-table');
+if (hTable) {
+  const rows = [...hTable.querySelectorAll('tbody tr[data-verdict]')];
+  const search = document.getElementById('h-search');
+  const empty = document.getElementById('h-empty');
+  let verdict = 'all';
+
+  const apply = () => {
+    const q = search.value.trim().toLowerCase();
+    let shown = 0;
+    rows.forEach(r => {
+      const ok = (verdict === 'all' || r.dataset.verdict === verdict) &&
+                 (!q || r.dataset.search.includes(q));
+      r.hidden = !ok;
+      if (ok) shown++;
+    });
+    empty.hidden = shown !== 0 || rows.length === 0;
+  };
+
+  search.addEventListener('input', apply);
+  document.querySelectorAll('#h-filter button').forEach(b => b.addEventListener('click', () => {
+    verdict = b.dataset.v;
+    document.querySelectorAll('#h-filter button').forEach(x => x.classList.toggle('on', x === b));
+    apply();
+  }));
+
+  hTable.addEventListener('click', e => {
+    const btn = e.target.closest('.copy');
+    if (!btn) return;
+    navigator.clipboard.writeText(btn.dataset.copy).then(() => {
+      const old = btn.textContent;
+      btn.textContent = 'Copied';
+      setTimeout(() => btn.textContent = old, 1200);
+    });
+  });
+}
