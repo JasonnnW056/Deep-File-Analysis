@@ -9,6 +9,8 @@ COMPILED_PATH = os.path.join(BASE_DIR, "rules", "compiled_full.yarc")
 _rules = None
 _lock = threading.Lock()
 
+MAX_YARA_BYTES = 256 * 1024 * 1024   # safety cap, adjust to taste
+
 def _cache_is_fresh():
     """True if the compiled cache exists and is at least as new as the .yar source."""
     try:
@@ -52,12 +54,20 @@ def get_rules():
 
 def scan_file(file_path, timeout=60):
     rules = get_rules()
+    # Python opens the file itself, so Unicode paths work on Windows.
+    # (rules.match(filepath) uses YARA's ANSI file API, which can't open them.)
     try:
-        matches = rules.match(file_path, timeout=timeout)
+        with open(file_path, "rb") as f:
+            data = f.read(MAX_YARA_BYTES)
+    except OSError as e:
+        raise RuntimeError(f"Cannot read file for YARA scan: {e}") from e
+
+    try:
+        matches = rules.match(data=data, timeout=timeout)
     except yara.TimeoutError:
         return [{"rule": "SCAN_TIMEOUT", "tags": [], "meta": {}}]
     except yara.Error as e:
-        raise RuntimeError(f"YARA scan failed for {file_path}: {e}") from e
+        raise RuntimeError(f"YARA scan failed for {os.path.basename(file_path)}: {e}") from e
     return [{"rule": m.rule, "tags": m.tags, "meta": m.meta} for m in matches]
 
 

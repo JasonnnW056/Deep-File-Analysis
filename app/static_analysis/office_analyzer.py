@@ -4,7 +4,6 @@
 # Registered in scanner.py as the "office" analyzer; entry point is analyze_office().
 
 import re
-import re
 import zipfile
 from collections import Counter
 from pathlib import Path
