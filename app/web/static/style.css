@@ -1,3 +1,5 @@
+@import "./homepage.css";
+
 /* ---------- tokens ---------- */
 :root {
   --bg: #f4f6f5; --surface: #ffffff; --surface-2: #eef2f1;
@@ -283,3 +285,24 @@ table.sigs td code { overflow-wrap: anywhere; }
 details.more { margin-top: 0; }
 details.more > summary { padding: .6rem .6rem; border-bottom: 1px solid var(--line); font-weight: 500; }
 details.more[open] > summary { border-bottom: 0; }
+
+/* ---------- Uppercase the hash text ---------- */
+#tab-hashes table.kv th { text-transform: uppercase; letter-spacing: .04em; }
+
+/* ---------- Observed behavior rows ---------- */
+.fold { margin: 0; padding: .5rem 0; font-size: .95rem; }
+.fold + .fold { border-top: 1px solid var(--line); }
+.fold summary { display: flex; align-items: center; gap: .6rem; list-style: none;
+  color: var(--ink); font-size: inherit; cursor: pointer; }
+.fold summary::-webkit-details-marker { display: none; }
+.fold-label { color: var(--ink); }
+.fold-toggle { display: inline-flex; align-items: center; gap: .4rem; padding: .05rem .6rem;
+  border-radius: 99px; background: var(--info-bg); color: var(--accent);
+  font-size: .8rem; font-weight: 600; }
+.fold-toggle::after { content: ""; width: .4rem; height: .4rem;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(45deg); transition: transform .15s; margin-top: -.15rem; }
+.fold[open] .fold-toggle::after { transform: rotate(-135deg); margin-top: .15rem; }
+.fold summary:hover .fold-toggle { filter: brightness(.95); }
+.fold-body { margin-top: .6rem; padding: .6rem .8rem; background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; max-height: 18rem; overflow: auto; }

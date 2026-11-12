@@ -141,6 +141,20 @@ def collect_ttps(report: dict, signatures: list) -> list:
 
     return list(dict.fromkeys(found))
 
+def detection_families(detections) -> list[str]:
+    """CAPE gives [{'family': 'XWorm', 'details': [...]}] (older versions: a plain string)."""
+    if not detections:
+        return []
+    if isinstance(detections, (str, dict)):
+        detections = [detections]
+    names = []
+    for d in detections:
+        if isinstance(d, dict):
+            d = d.get("family") or d.get("name")
+        if d:
+            names.append(str(d))
+    return list(dict.fromkeys(names)) 
+
 def normalize_report(report:dict, task_id:int)-> sandbox_report:
     info= report.get("info",{}) or {}
     target= (report.get("target",{})or {}).get("file",{}) or {}
@@ -158,21 +172,18 @@ def normalize_report(report:dict, task_id:int)-> sandbox_report:
     signatures.sort(key=lambda s: s["severity"] or 0, reverse= True) 
 
     ttps = collect_ttps(report, signatures)
-    # if isinstance(ttps, dict):
-    #     ttps= list(ttps.keys())
-    # else:
-    #     #If ttps in different key name
-    #     ttps= [t.get("ttp") if isinstance(t, dict) else t for t in ttps]
-    # ttps= list(dict.fromkeys(t for t in ttps if t))
-
-    file_dropped= []
+    
+    file_dropped = []
 
     for f in report.get("dropped", []) or []:
+        name = f.get("name")
+        if isinstance(name, (list, tuple)):
+            name = ", ".join(str(n) for n in name)
         file_dropped.append({
-            "name": f.get("name"),
+            "name": name,
             "size": f.get("size"),
             "type": f.get("type"),
-            "sha256": f.get("sha256")
+            "sha256": f.get("sha256"),
         })
 
     return sandbox_report(
@@ -188,7 +199,7 @@ def normalize_report(report:dict, task_id:int)-> sandbox_report:
             "sha256": target.get("sha256"),
         },
         detonation_duration=info.get("duration"),
-        malware_detected=report.get("detections"),
+        malware_detected=detection_families(report.get("detections")),
         signatures=signatures,
         ttps=ttps,
         behavior={
@@ -251,7 +262,3 @@ class cape_backend():
         result= normalize_report(report, task_id)
         result.total_seconds = round(time.monotonic() - start_timer, 2)
         return result
-     
-# client= cape_client("http://localhost:8000", token=None)
-# task= client.submit_file(Path("/home/jason/test.bat"))
-# print(task)

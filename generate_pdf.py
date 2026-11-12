@@ -416,11 +416,11 @@ def generate_report(sandbox_report: sandbox_report|None, out_path: str | Path, m
     verdict_cell = Paragraph(
         f'<font size="9" color="white">FINAL VERDICT</font><br/>'
         f'<font size="26" color="white"><b>{verdict.label}</b></font>', st["banner_l"])
-    confmake_to_text = f"{verdict.confidence_score:.0f}%" if verdict.confidence_score is not None else "n/a"
+    confmake_to_text = f"{verdict.confidence_score:.0f}%" if verdict.confidence_score is not None else "N/A"
     if sandbox_report is not None and sandbox_report.cape_score is not None:
         scoremake_to_text = f"{float(sandbox_report.cape_score):g} / {sandbox_report.max_score or 10.0:g}"
     else:
-        scoremake_to_text = "n/a"
+        scoremake_to_text = "N/A"
 
     if sandbox_report is None and static_report:
         if static_report.get("mode_note"):

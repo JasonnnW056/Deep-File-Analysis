@@ -1,0 +1,113 @@
+{# app/web/templates/home.html  -- the landing page (served at /). #}
+{% extends "base.html" %}
+{% block title %}Deep File Analysis{% endblock %}
+
+{% block content %}
+<header class="hero hero-home">
+  <h1>Find out what a file does before you open it</h1>
+  <p class="lede">Upload a program, document or archive. We check it for warning signs and give you a plain report, so you can decide whether it’s safe to open.</p>
+  <div class="hero-actions">
+    <a class="cta" href="{{ url_for('web.index') }}">Start scanning</a>
+    <a class="navlink" href="#how-it-works">How it works</a>
+  </div>
+</header>
+
+<section class="explain" id="how-it-works">
+  <h2>Two ways to check a file</h2>
+  <p class="lede">Not sure which to pick? Choose hybrid. Use fast when you only need a quick look.</p>
+
+  <div class="duo">
+    <article class="way">
+      <h3>Fast scan</h3>
+      <p class="way-time">Takes a few seconds</p>
+      <p>Think of reading the label on a parcel and x-raying it without opening it. We look at the file but never run it.</p>
+      <h4>What we look at</h4>
+      <ul>
+        <li>Whether the file is really what its name says. A “photo.jpg” can secretly be a program.</li>
+        <li>Whether it matches patterns found in known harmful files.</li>
+        <li>Web addresses and other hidden text inside it.</li>
+        <li>Signs it has been scrambled to hide what’s inside.</li>
+      </ul>
+      <h4>What it can’t tell you</h4>
+      <p>What the file does once it’s opened. A clever file can look harmless until it runs.</p>
+      <h4>Good for</h4>
+      <p>Quick checks, documents and images, or when you have many files to get through.</p>
+    </article>
+
+    <article class="way way-main">
+      <h3>Hybrid scan</h3>
+      <p class="way-time">Takes 1 to 3 minutes</p>
+      <p>Everything in a fast scan, plus a test run. We open the file inside a sealed virtual computer and watch what it does. It’s like trying a suspicious gadget in a lab instead of at your desk.</p>
+      <h4>What we watch for</h4>
+      <ul>
+        <li>Changes to the computer’s settings.</li>
+        <li>Attempts to hide itself or delete its own traces.</li>
+        <li>Collecting information about the computer.</li>
+        <li>New files it creates or drops.</li>
+        <li>Connections to websites or other computers.</li>
+      </ul>
+      <h4>Good for</h4>
+      <p>Unknown programs, installers, and anything you were sent and don’t fully trust.</p>
+      <h4>Keep in mind</h4>
+      <p>Some harmful files wait or check whether they’re being watched, so a quiet test run is not a guarantee.</p>
+    </article>
+  </div>
+
+  <h2 class="block">What happens in a hybrid scan</h2>
+  <ol class="flow">
+    <li><strong>You upload</strong>The file goes to our server. It is never opened on your computer.</li>
+    <li><strong>Read-only check</strong>The fast scan runs first, so you get early results.</li>
+    <li><strong>Test run</strong>A fresh virtual computer opens the file for about a minute and records what happens. It’s reset afterwards.</li>
+    <li><strong>Report</strong>Both results are combined into one risk level, with a list of what we found.</li>
+  </ol>
+
+  <h2 class="block">Side by side</h2>
+  <div class="compare">
+    <table>
+      <thead><tr><th></th><th>Fast scan</th><th>Hybrid scan</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Time</th><td>A few seconds</td><td>1 to 3 minutes</td></tr>
+        <tr><th scope="row">Opens the file?</th><td>No, never</td><td>Yes, inside a sealed virtual computer</td></tr>
+        <tr><th scope="row">Shows what it does?</th><td>No</td><td>Yes</td></tr>
+        <tr><th scope="row">Spots files that hide?</th><td>Sometimes</td><td>More often</td></tr>
+        <tr><th scope="row">Best for</th><td>Quick checks, documents</td><td>Programs and anything suspicious</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pair">
+    <div>
+    <h2 class="block">Reading your results</h2>
+    <dl class="reading">
+      <div><dt><span class="sev sev-info">No findings</span></dt><dd>Nothing stood out. This does not prove the file is safe.</dd></div>
+      <div><dt><span class="sev sev-low">Low</span></dt><dd>Minor oddities that are common in ordinary software.</dd></div>
+      <div><dt><span class="sev sev-medium">Medium</span></dt><dd>Several signs worth checking before you open the file.</dd></div>
+      <div><dt><span class="sev sev-high">High</span></dt><dd>Strong signs of harmful behavior. Don’t open it.</dd></div>
+    </dl>
+    <p class="note-box">In a hybrid scan, the final risk is the higher of the two results. A quiet test run can’t hide something the fast scan found, and the other way round.</p>
+    </div>
+    <div>
+    <h2 class="block">What happens to your file</h2>
+    <p>While it’s scanned, your file sits in a private temporary folder on the server and is deleted when the scan ends. In a hybrid scan, a copy also goes to the sandbox, which keeps its own record of the test run.</p>
+    <p>The report details (file name, fingerprints and findings) are saved in <a href="{{ url_for('web.history') }}">History</a> so you can reopen them. Please don’t upload files that contain private information.</p>
+    </div>
+  </div>
+
+  <details class="gloss">
+    <summary>Words you might see in a report</summary>
+    <dl>
+      <dt>Sandbox</dt><dd>A sealed virtual computer used for test runs. Whatever the file does stays inside it.</dd>
+      <dt>Signature or rule</dt><dd>A pattern that identifies a known kind of harmful file, like a fingerprint match.</dd>
+      <dt>Packed</dt><dd>Scrambled or compressed so the contents are hard to read. Common in both harmful and ordinary software.</dd>
+      <dt>Hash</dt><dd>A short code that identifies a file exactly. Two files with the same hash are identical.</dd>
+      <dt>MITRE ATT&amp;CK</dt><dd>A public list of known attacker techniques. Reports use its codes, such as T1082, to name what a file did.</dd>
+    </dl>
+  </details>
+</section>
+
+<section class="closing">
+  <h2>Ready to check a file?</h2>
+  <p class="lede">It takes a few seconds for a fast scan and a few minutes for hybrid.</p>
+  <a class="cta" href="{{ url_for('web.index') }}">Start scanning</a>
+</section>
+{% endblock %}

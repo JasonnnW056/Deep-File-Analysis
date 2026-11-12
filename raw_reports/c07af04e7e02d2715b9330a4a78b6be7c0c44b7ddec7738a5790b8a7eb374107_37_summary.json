@@ -1,0 +1,311 @@
+{
+  "task_id": "37",
+  "cape_score": 10.0,
+  "max_score": 10.0,
+  "file": {
+    "name": "c07af04e7e02d2715b93.exe",
+    "size": 646144,
+    "type": "PE32 executable (GUI) Intel 80386 Mono/.Net assembly, for MS Windows",
+    "md5": "946769cb593428a7bfe8c8ac78987a33",
+    "sha1": "cdfaa20d301bac9f66de4c2a6985c7cfd19473a6",
+    "sha256": "c07af04e7e02d2715b9330a4a78b6be7c0c44b7ddec7738a5790b8a7eb374107"
+  },
+  "detonation_duration": 228,
+  "malware_detected": [
+    {
+      "family": "XWorm",
+      "details": [
+        {
+          "Yara": "765f98d80569cabb24034922ad0f7373295d9d3c8f933ad5192f932117359059"
+        },
+        {
+          "Yara": "911d51b54a22f069e803ddb49341c530c05380508282fd1463552adde665e157"
+        }
+      ]
+    }
+  ],
+  "signatures": [
+    {
+      "name": "amsi_enumeration",
+      "description": "Enumerated Anti-Malware Scan Interface (AMSI) providers, a potential precursor to AMSI bypass or EDR unhooking",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "unbacked_syscall_execution",
+      "description": "Executes syscalls where the return address or caller points to dynamically allocated (unbacked) memory",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "exception_driven_execution",
+      "description": "Registered a Vectored Exception Handler (VEH) and intentionally triggered exceptions or manipulated thread contexts. May be used to hijack the OS error dispatcher to execute a payload or shellcode",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "injection_write_exe_process",
+      "description": "Writes an executable to the memory of another process",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "interprocess_comms_shared_memory",
+      "description": "Inter-process communication via named shared memory (file mappings), possibly for routing local C2 traffic or injection",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "unbacked_etw_patching",
+      "description": "Attempted to blind ETW telemetry by writing into ntdll!EtwEventWrite from dynamically allocated (unbacked) memory \u2014 a technique used by Brute Ratel, Havoc C2, and similar offensive frameworks to suppress event-tracing visibility",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "unbacked_exception_filter",
+      "description": "Modified exception handling mechanisms (UEF/VEH) from dynamically allocated (unbacked) memory, indicative of fileless anti-debugging or silent crash suppression",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "unbacked_privilege_escalation",
+      "description": "Enabled sensitive privileges (e.g. SeDebugPrivilege, SeTcbPrivilege) via token adjustment from dynamically allocated (unbacked) memory, indicative of shellcode preparing for privileged operations",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "unbacked_process_mitigation_alteration",
+      "description": "Manipulated process mitigation policies (CFG/DEP) from dynamically allocated (unbacked) memory",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "unbacked_api_resolution",
+      "description": "Manually resolves API addresses from dynamically allocated (unbacked) memory, indicative of shellcode or an unpacker",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "unbacked_library_load",
+      "description": "Loads a new DLL where the caller address originates from dynamically allocated (unbacked) memory",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "unbacked_memory_protection_alteration",
+      "description": "Altered memory protections from dynamically allocated (unbacked) memory, indicative of self-modifying shellcode or memory patching",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "unbacked_mutex_creation",
+      "description": "Created or queried a mutex from dynamically allocated (unbacked) memory, indicative of a fileless payload checking or creating an infection marker",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "unbacked_process_creation",
+      "description": "Attempted to spawn a new child process from dynamically allocated (unbacked) memory",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "unbacked_crypto_operations",
+      "description": "Invoked native Windows cryptographic APIs from dynamically allocated (unbacked) memory, possible encryption/decryption of payloads, c2, files or data",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "unbacked_delay_execution",
+      "description": "Paused execution (sleep/delay) in a thread executing in dynamically allocated (unbacked) memory, indicative of sandbox evasion or C2 sleeping between callbacks",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "unbacked_process_enumeration",
+      "description": "Attempted to enumerate running processes from dynamically allocated (unbacked) memory",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "unbacked_token_manipulation",
+      "description": "Attempted to open, duplicate, or impersonate an access token from dynamically allocated (unbacked) memory, indicative of credential theft or lateral movement",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "procmem_yara",
+      "description": "Yara detections observed in process dumps, payloads or dropped files",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "infostealer_keylog",
+      "description": "Sniffs keystrokes",
+      "severity": 3,
+      "ttps": []
+    },
+    {
+      "name": "privilege_elevation_check",
+      "description": "Queries process token information to check for Administrator privileges or UAC elevation status",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "query_fips_reconnaissance",
+      "description": "Queried the FIPS cryptography policy, can be used to adapt C2 network encryption or by legitimate encryption software",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "registers_vectored_exception_handler",
+      "description": "Registers a vectored exception handler (VEH), possibly to hijack execution flow",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "allocated_memory_protection_noaccess",
+      "description": "Allocated memory and changed its protection to PAGE_NOACCESS, may be used to hide payloads from memory scanners or to trigger an access violation for exception-driven execution",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "creates_suspended_process",
+      "description": "Creates a process in a suspended state, likely for injection",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "resumethread_remote_process",
+      "description": "Resumed a thread in another process",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "injection_write_process",
+      "description": "Writes to the memory another process",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "reads_memory_remote_process",
+      "description": "Reads from the memory of another process",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "terminates_remote_process",
+      "description": "Terminates another process",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "packer_entropy",
+      "description": "The binary likely contains encrypted or compressed data",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "invalid_authenticode_signature",
+      "description": "Authenticode signature is invalid",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "injection_rwx",
+      "description": "Creates RWX memory",
+      "severity": 2,
+      "ttps": []
+    },
+    {
+      "name": "antivm_checks_available_memory",
+      "description": "Checks available memory",
+      "severity": 1,
+      "ttps": []
+    },
+    {
+      "name": "dead_connect",
+      "description": "Attempts to connect to a dead IP:Port (1 unique times)",
+      "severity": 1,
+      "ttps": []
+    },
+    {
+      "name": "queries_locale_api",
+      "description": "Queries the computer locale (possible geofencing)",
+      "severity": 1,
+      "ttps": []
+    },
+    {
+      "name": "antidebug_setunhandledexceptionfilter",
+      "description": "SetUnhandledExceptionFilter detected (possible anti-debug)",
+      "severity": 1,
+      "ttps": []
+    },
+    {
+      "name": "language_check_registry",
+      "description": "Checks system language via registry key (possible geofencing)",
+      "severity": 1,
+      "ttps": []
+    }
+  ],
+  "ttps": [
+    "T1082",
+    "T1518",
+    "T1562",
+    "T1055",
+    "T1106",
+    "T1033",
+    "T1071",
+    "T1574",
+    "T1027",
+    "T1129",
+    "T1059",
+    "T1573",
+    "T1497",
+    "T1057",
+    "T1027.002",
+    "T1553.002",
+    "T1036",
+    "T1553"
+  ],
+  "behavior": {
+    "executed_commands": [
+      "\"C:\\Users\\JW\\AppData\\Local\\Temp\\c07af04e7e02d2715b93.exe\""
+    ],
+    "files_written": [],
+    "files_deleted": [],
+    "registry_written": [],
+    "mutexes": [
+      "zBYJPRZaZZocN",
+      "Xls2LrJhLe8JNt5n"
+    ],
+    "services_created": []
+  },
+  "network": {
+    "hosts": [
+      {
+        "ip": "5.175.253.16",
+        "country_name": "unknown",
+        "asn": "",
+        "asn_name": "",
+        "hostname": "",
+        "inaddrarpa": "",
+        "ports": [
+          7004
+        ]
+      }
+    ],
+    "domains": [
+      {
+        "domain": "www.msftconnecttest.com",
+        "ip": "203.96.220.162"
+      }
+    ],
+    "http": [],
+    "tcp_count": 0,
+    "udp_count": 39
+  },
+  "dropped_files": [],
+  "total_extracted_payloads": 16,
+  "total_seconds": 270.38
+}

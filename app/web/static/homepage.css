@@ -1,0 +1,84 @@
+/* ---------- homepage explainer ---------- */
+.explain { max-width: 56rem; margin: 3.5rem auto 0; }
+.explain h2 { margin: 0 0 .3rem; font-size: 1.35rem; letter-spacing: -.01em; }
+.explain h2.block { margin-top: 3rem; }
+.explain > .lede { margin: 0 0 1.4rem; max-width: 40rem; }
+.explain h3 { margin: 0; font-size: 1.15rem; }
+.explain h4 { margin: 1.1rem 0 .3rem; font-size: .88rem; font-weight: 600; color: var(--muted); }
+.explain p, .explain li { max-width: 62ch; }
+.explain p { margin: .4rem 0; }
+.explain ul { margin: .3rem 0; padding-left: 1.1rem; }
+.explain li { margin: .25rem 0; }
+
+/* fast vs hybrid */
+.duo { display: grid; grid-template-columns: 1fr 1.15fr; gap: 1rem; align-items: stretch; }
+.way { padding: 1.3rem 1.4rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.way-main { border-color: var(--accent); box-shadow: inset 0 4px 0 var(--accent), var(--shadow); }
+.way-time { color: var(--accent); font-size: .9rem; font-weight: 600; }
+
+/* hybrid steps */
+.flow { list-style: none; counter-reset: f; margin: .8rem 0 0; padding: 0;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.flow li { counter-increment: f; position: relative; padding-top: 2.6rem; font-size: .92rem; color: var(--muted); }
+.flow li::before { content: counter(f); position: absolute; top: 0; left: 0; display: grid; place-items: center;
+  width: 1.9rem; height: 1.9rem; border-radius: 50%; background: var(--accent); color: var(--accent-ink);
+  font-size: .85rem; font-weight: 650; }
+.flow li::after { content: ""; position: absolute; top: .93rem; left: 2.3rem; right: .3rem; height: 2px; background: var(--line); }
+.flow li:last-child::after { display: none; }
+.flow strong { display: block; margin-bottom: .15rem; color: var(--ink); font-size: 1rem; }
+
+/* comparison table */
+.compare { overflow-x: auto; padding: .3rem 1rem; background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--radius); }
+.compare table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.compare th, .compare td { padding: .65rem .6rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+.compare tr:last-child > * { border-bottom: 0; }
+.compare thead th { font-size: .95rem; }
+.compare tbody th { width: 28%; color: var(--muted); font-weight: 500; }
+
+/* reading results */
+.reading { margin: .6rem 0 0; display: grid; gap: .65rem; }
+.reading > div { display: grid; grid-template-columns: 7.5rem 1fr; gap: .8rem; align-items: baseline; }
+.reading dt { margin: 0; }
+.reading dd { margin: 0; }
+.reading .sev { min-width: 6.5rem; }
+.note-box { margin-top: 1rem !important; padding: .75rem 1rem; border-radius: 8px;
+  background: var(--info-bg); color: var(--info); }
+
+/* glossary */
+.gloss { margin-top: 2rem; padding: .8rem 1rem; background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--radius); }
+.gloss dl { display: grid; grid-template-columns: 11rem 1fr; gap: .6rem 1rem; margin: .8rem 0 .2rem; }
+.gloss dt { font-weight: 600; }
+.gloss dd { margin: 0; color: var(--muted); }
+
+@media (max-width: 46rem) {
+  .duo { grid-template-columns: 1fr; }
+  .flow { grid-template-columns: 1fr; gap: 1.2rem; }
+  .flow li { padding: 0 0 0 2.7rem; }
+  .flow li::after { display: none; }
+  .reading > div { grid-template-columns: 1fr; gap: .2rem; }
+  .gloss dl { grid-template-columns: 1fr; gap: .1rem; }
+  .gloss dd { margin-bottom: .6rem; }
+}
+
+/* ---------- landing page buttons ---------- */
+.hero-home { margin-top: 3rem; }
+.hero-home h1 { font-size: clamp(2rem, 5vw, 2.8rem); }
+.hero-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .8rem; margin-top: 1.6rem; }
+.cta { display: inline-block; padding: .8rem 1.7rem; border-radius: 8px; background: var(--accent); color: var(--accent-ink);
+  font-weight: 600; text-decoration: none; transition: filter .15s; }
+.cta:hover { filter: brightness(1.1); }
+.hero-actions .navlink { padding: .8rem 1.2rem; }
+.closing { max-width: 56rem; margin: 3.5rem auto 0; padding: 2rem 1rem; text-align: center;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.closing h2 { margin: 0 0 .3rem; font-size: 1.35rem; }
+.closing .lede { margin: 0 0 1.2rem; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* results + privacy side by side, so the lower half fills the width like the table above it */
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: start; margin-top: 3rem; }
+.explain .pair h2.block { margin-top: 0; }
+.explain .pair p { max-width: none; }
+@media (max-width: 46rem) { .pair { grid-template-columns: 1fr; gap: 0; } .explain .pair > div + div h2.block { margin-top: 2rem; } }

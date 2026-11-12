@@ -214,10 +214,17 @@ def _scan_upload(uploaded, mode=DEFAULT_MODE):
     return report
 
 
+# @bp.route("/", methods=["GET"])
+# def index():
+#     return render_template("index.html")
+
 @bp.route("/", methods=["GET"])
+def home():
+    return render_template("homepage.html")
+
+@bp.route("/upload", methods=["GET"])
 def index():
     return render_template("index.html")
-
 
 @bp.route("/scan", methods=["POST"])
 def scan():
