@@ -3,11 +3,18 @@ import re
 import requests
 import tempfile
 import json
-from flask import Blueprint, abort, current_app, jsonify, render_template, request
+from flask import Blueprint, abort, current_app, jsonify, render_template, request, send_from_directory
 from app.static_analysis.scanner import scan_file
 from app.db import save_scan, get_history, get_scan
 from pathlib import Path
 from dynamic_analysis.backend_base import sandbox_report
+
+#To delete the report generated
+import atexit
+import shutil
+import sys
+import signal
+
 try:
     from dynamic_analysis.scan import dynamic_scan
     from dynamic_analysis.backend_base import detonation_error, detonation_timeout
@@ -23,6 +30,10 @@ _RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
              *(f"LPT{i}" for i in range(1, 10))}
 _BIDI = re.compile("[\u202a-\u202e\u2066-\u2069]")
 
+_PDF_DIR= Path(tempfile.mkdtemp(prefix="temp_reports"))
+atexit.register(shutil.rmtree, _PDF_DIR, ignore_errors=True)
+
+_PDF_NAME= re.compile(r"^[A-Za-z0-9_-]+_report\.pdf$")
 
 def _safe_name(name):
     """Keep the real file name (extensions matter for analysis) but make it safe to write."""
@@ -122,6 +133,7 @@ def _run_hybrid_stage(path, report):
 
     if not is_sandbox_up():
         report["mode_note"] = "Sandbox is offline. Showing static analysis only."
+        report["sandbox_offline"] = True      # the result page shows a red alert box for this
         return
     
     try:
@@ -165,17 +177,20 @@ def _scan_upload(uploaded, mode=DEFAULT_MODE):
         dynamic_report = None
         if mode == "hybrid":
             dynamic_report=_run_hybrid_stage(path, report)
-        try:                                                  # a PDF failure must not lose the results
-            out_dir = Path(os.getenv("RAW_REPORT_DIR", "raw_reports"))
+        try:
             sha = (report.get("hashes") or {}).get("sha256", "unknown")
             name = dynamic_report.task_id if dynamic_report else sha[:12]
-            generate_report(dynamic_report, out_dir / f"{name}_report.pdf", static_report=report)
+            pdf = generate_report(dynamic_report, _PDF_DIR / f"{name}_report.pdf", static_report=report)
+            report["pdf_name"] = pdf.name
         except Exception:
             current_app.logger.exception("PDF generation failed")
-    
+
     report["file"]["name"] = _display_name(uploaded.filename)
-    report["file"].pop("path", None)  # don't leak the temp path
+    report["file"].pop("path", None)
+    pdf_name = report.pop("pdf_name", None)   # don't save it in history, the file won't outlive the app
     _store(report)
+    if pdf_name:
+        report["pdf_name"] = pdf_name
     return report
 
 
@@ -198,6 +213,12 @@ def api_scan():
     if not uploaded:
         return jsonify(error="No file provided"), 400
     return jsonify(_scan_upload(uploaded, _get_mode()))
+
+@bp.route("/report/<name>", methods=["GET"])
+def download_pdf(name):
+    if not _PDF_NAME.match(name) or not (_PDF_DIR / name).is_file():
+        abort(404)
+    return send_from_directory(_PDF_DIR, name, as_attachment=True, mimetype="application/pdf")
 
 @bp.route("/history", methods=["GET"])
 def history():

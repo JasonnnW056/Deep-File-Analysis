@@ -35,6 +35,16 @@
   {% else %}{{ value }}{% endif %}
 {% endmacro %}
 
+{# A collapsible list with a count, for long sandbox lists (commands, files, hosts...) #}
+{% macro fold(label, items) %}
+  {% set items = items or [] %}
+  {% if items|length == 0 %}
+    <p class="muted">{{ label }}: none</p>
+  {% else %}
+    <details><summary>{{ label }} <span class="muted">{{ items|length }}</span></summary>{{ render(items) }}</details>
+  {% endif %}
+{% endmacro %}
+
 {% block content %}
 {% set s = result.summary %}
 {% set ft = result.analyzers.get('filetype') %}
@@ -55,7 +65,7 @@
     <p class="eyebrow">{% if ft and ft.status == 'ok' %}{{ ft.data.description }}{% else %}File{% endif %}</p>
     <h1>{{ result.file.name }}</h1>
     {% if result.scan_mode %}<p><span class="mode-pill">{{ 'Hybrid scan' if result.scan_mode == 'hybrid' else 'Fast scan' }}</span></p>{% endif %}
-    {% if result.mode_note %}<p class="notice">{{ result.mode_note }}</p>{% endif %}
+    {% if result.mode_note and not result.sandbox_offline %}<p class="notice">{{ result.mode_note }}</p>{% endif %}
     <p class="meta">
       {% if result.file.size is not none %}{{ "{:,}".format(result.file.size) }} bytes{% endif %}
       {% if result.hashes.get('sha256') %}<span class="dot">&middot;</span>SHA-256 <code>{{ result.hashes.sha256[:16] }}…</code>{% endif %}
@@ -90,14 +100,32 @@
   </div>
 </section>
 
+{% if result.sandbox_offline %}
+<style>
+  .sandbox-alert { margin: 16px 0; padding: 14px 18px; border-radius: 10px;
+    background: #fdecea; border: 1px solid #e6a5a0; border-left: 5px solid #b71c1c; color: #7f1d1d; }
+  .sandbox-alert strong { display: block; margin-bottom: 2px; color: #b71c1c; }
+</style>
+<div class="sandbox-alert" role="alert">
+  <strong>Sandbox is offline</strong>
+  Dynamic analysis was not run. The results below come from static analysis only, so a clean result does not confirm the file is safe.
+</div>
+{% endif %}
+
 <nav class="tabs" role="tablist" aria-label="Report sections">
   <button role="tab" aria-selected="true"  data-tab="findings">Findings <span class="count">{{ result.findings|length }}</span></button>
   <button role="tab" aria-selected="false" data-tab="hashes">Hashes</button>
   <button role="tab" aria-selected="false" data-tab="pe">PE info</button>
   <button role="tab" aria-selected="false" data-tab="yara">YARA {% if ya %}<span class="count">{{ (ya.data or {}).get('match_count', 0) }}</span>{% endif %}</button>
+  {% if result.dynamic %}
+  <button role="tab" aria-selected="false" data-tab="dynamic">Dynamic <span class="count">{{ (result.dynamic.get('signatures') or [])|length }}</span></button>
+  {% endif %}
   <button role="tab" aria-selected="false" data-tab="details">Details</button>
   <button role="tab" aria-selected="false" data-tab="raw">Raw JSON</button>
-  <button type="button" id="download" class="ghost" data-filename="{{ result.file.name ~ '.report.json' }}">Download report</button>
+  {% if result.pdf_name %}
+  <button type="button" id="download" class="ghost"
+          data-href="{{ url_for('web.download_pdf', name=result.pdf_name) }}">Download PDF report</button>
+  {% endif %}
 </nav>
 
 {# ---- Findings ---- #}
@@ -217,6 +245,99 @@
     {% endif %}
   {% endif %}
 </section>
+
+{# ---- Dynamic: sandbox (CAPE) results. Only present when the sandbox ran. ---- #}
+{% if result.dynamic %}
+{% set dyn = result.dynamic %}
+{% set dv = dyn.get('verdict') or {} %}
+{% set beh = dyn.get('behavior') or {} %}
+{% set net = dyn.get('network') or {} %}
+{% set sigs = dyn.get('signatures') or [] %}
+{% set dropped = dyn.get('dropped_files') or [] %}
+<section class="panel" id="tab-dynamic" role="tabpanel" hidden>
+  <style>
+    .dyn-banner { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
+      padding: 16px 20px; border-radius: 10px; margin-bottom: 14px; color: #fff; background: #607d8b; }
+    .dyn-banner.dyn-malware { background: #b71c1c; }
+    .dyn-banner.dyn-suspicious { background: #e65100; }
+    .dyn-banner.dyn-likely-benign { background: #66bb6a; }
+    .dyn-banner.dyn-benign { background: #2e7d32; }
+    .dyn-eyebrow { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .9; }
+    .dyn-label { font-size: 26px; font-weight: 700; }
+    .dyn-stats { text-align: right; font-size: 13px; }
+    .dyn-stats b { display: block; font-size: 20px; }
+  </style>
+
+  {% if dv %}
+    <div class="dyn-banner dyn-{{ (dv.get('label') or 'inconclusive')|lower|replace(' ', '-') }}">
+      <div><span class="dyn-eyebrow">Sandbox verdict</span><span class="dyn-label">{{ dv.get('label') or 'INCONCLUSIVE' }}</span></div>
+      <div class="dyn-stats">
+        Confidence<b>{% if dv.get('confidence') is not none %}{{ dv.confidence|round|int }}%{% else %}n/a{% endif %}</b>
+      </div>
+    </div>
+    {% if dv.get('reasons') %}
+      <ul class="plain">{% for r in dv.reasons %}<li>{{ r }}</li>{% endfor %}</ul>
+    {% endif %}
+  {% else %}
+    <p class="notice">The sandbox ran, but no verdict could be calculated.</p>
+  {% endif %}
+
+  {{ kv([
+    ('CAPE task', dyn.get('task_id')),
+    ('CAPE score', (dyn.get('cape_score') ~ ' / ' ~ (dyn.get('max_score') or 10)) if dyn.get('cape_score') is not none else none),
+    ('Run time in guest', (dyn.get('detonation_duration') ~ ' s') if dyn.get('detonation_duration') is not none else none),
+    ('Total scan time', ((dyn.get('total_seconds') or dyn.get('elapsed_seconds')) ~ ' s') if (dyn.get('total_seconds') or dyn.get('elapsed_seconds')) else none),
+    ('Known malware matched', dyn.get('malware_detected')|join(', ') if dyn.get('malware_detected') is iterable and dyn.get('malware_detected') is not string and dyn.get('malware_detected') is not mapping else dyn.get('malware_detected')),
+  ]) }}
+
+  <h3>Behavior signatures ({{ sigs|length }})</h3>
+  {% if sigs %}
+    <table class="grid">
+      <thead><tr><th>Severity</th><th>Signature</th><th>Description</th></tr></thead>
+      <tbody>
+      {% for sg in sigs %}
+        {% set n = sg.get('severity') or 0 %}
+        {% set lvl = 'high' if n >= 3 else ('medium' if n == 2 else ('low' if n == 1 else 'info')) %}
+        <tr><td>{{ sev(lvl) }}</td><td><code>{{ sg.get('name') }}</code></td><td>{{ sg.get('description') or '' }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}<p class="muted">No signatures triggered.</p>{% endif %}
+
+  <h3>MITRE ATT&amp;CK techniques ({{ (dyn.get('ttps') or [])|length }})</h3>
+  {% if dyn.get('ttps') %}
+    <p>{% for t in dyn.ttps %}<span class="chip">{{ t }}</span> {% endfor %}</p>
+  {% else %}<p class="muted">None reported.</p>{% endif %}
+
+  <h3>Observed behavior</h3>
+  {{ fold('Commands executed', beh.get('executed_commands')) }}
+  {{ fold('Files written', beh.get('files_written')) }}
+  {{ fold('Files deleted', beh.get('files_deleted')) }}
+  {{ fold('Registry keys written', beh.get('registry_written')) }}
+  {{ fold('Mutexes', beh.get('mutexes')) }}
+  {{ fold('Services created', beh.get('services_created')) }}
+
+  <h3>Network activity</h3>
+  {{ fold('Hosts contacted', net.get('hosts')) }}
+  {{ fold('Domains', net.get('domains')) }}
+  {{ fold('HTTP requests', net.get('http')) }}
+  <p class="muted small">{{ net.get('tcp_count', 0) }} TCP and {{ net.get('udp_count', 0) }} UDP connections.</p>
+
+  <h3>Dropped files ({{ dropped|length }}) and extracted payloads ({{ dyn.get('total_extracted_payloads', 0) }})</h3>
+  {% if dropped %}
+    <table class="grid">
+      <thead><tr><th>Name</th><th>Type</th><th>Size</th><th>SHA-256</th></tr></thead>
+      <tbody>
+      {% for d in dropped %}
+        <tr><td><code>{{ d.get('name') or '-' }}</code></td><td>{{ d.get('type') or '-' }}</td>
+            <td>{% if d.get('size') is not none %}{{ "{:,}".format(d.size) }}{% else %}-{% endif %}</td>
+            <td><code>{{ d.get('sha256') or '-' }}</code></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}<p class="muted">No files dropped.</p>{% endif %}
+</section>
+{% endif %}
 
 {# ---- Details: every other analyzer (filetype, generic, pdf, office, ...) ---- #}
 <section class="panel" id="tab-details" role="tabpanel" hidden>

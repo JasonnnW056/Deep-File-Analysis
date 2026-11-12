@@ -29,6 +29,7 @@ ANALYZER_STATUS_COLORS= {"ok": "#2E7D32", "skipped": "#607D8B", "error": "#B71C1
 VERDICT_COLORS = {
     "MALWARE": colors.red,
     "SUSPICIOUS": colors.orange,
+    "LIKELY BENIGN": colors.HexColor("#66BB6A"),
     "BENIGN": colors.green,
     "INCONCLUSIVE": colors.gray,
 }
@@ -69,9 +70,36 @@ def set_static_verdict(static_report: dict) -> verdict:
     line, level = static_note(static_report)
     reasons = [line or "No static risk level available."]
     reasons.append("No sandbox run was performed, so behavior was not observed.")
+    summary = static_report.get("summary") or {}
+ 
     if level in ("high", "medium"):
         return verdict("SUSPICIOUS", None, None, reasons)
+ 
+    # Clean or low-risk result from a complete static scan: say so, but not "BENIGN",
+    # because a static scan alone can't prove a file is safe.
+    if level in ("none", "low") and summary.get("complete", True):
+        reasons.append("No analyzer flagged anything significant. This is based on static inspection only.")
+        return verdict("LIKELY BENIGN", None, None, reasons)
+ 
     return verdict("INCONCLUSIVE", None, None, reasons)
+
+ #For static analysis
+def dynamic_recommendation(label: str, static_report: dict) -> str | None:
+    """Text telling the reader what to do next when no sandbox run is behind the verdict."""
+    mode_note = static_report.get("mode_note")
+    fast_mode = static_report.get("scan_mode") == "fast"
+ 
+    if label == "SUSPICIOUS":
+        return ("Static analysis flagged this file. Run dynamic analysis before trusting or opening it."
+                + (" Choose Hybrid scan mode." if fast_mode else ""))
+    if label == "LIKELY BENIGN":
+        if mode_note:
+            return ("Dynamic analysis is recommended to confirm, but it could not be completed this time. "
+                    "Try the hybrid scan again later.")
+        if fast_mode:
+            return "Dynamic analysis is recommended to confirm. Run a hybrid scan to check how the file behaves."
+        return "Dynamic analysis is recommended to confirm."
+    return None
 
 def set_verdict(report: sandbox_report, static_report: dict | None= None)-> verdict:
     static_line, static_level = static_note(static_report)
@@ -405,6 +433,11 @@ def generate_report(sandbox_report: sandbox_report|None, out_path: str | Path, m
             why = "Dynamic analysis was not run for this sample."
         verdict.reasons.append(why)
 
+         #(Only for SUSPICIOUS / LIKELY BENIGN)
+        advice = dynamic_recommendation(verdict.label, static_report)
+        if advice:
+            verdict.reasons.append(advice)
+
     stats_cell = Paragraph(
         f'<font size="9" color="#555555">CONFIDENCE</font><br/><font size="18"><b>{confmake_to_text}</b></font>'
         f'<br/><br/><font size="9" color="#555555">CAPE SCORE</font><br/>'
@@ -477,19 +510,21 @@ def generate_report(sandbox_report: sandbox_report|None, out_path: str | Path, m
                     "packed, encrypted or obfuscated samples can look clean. No verdict here is a "
                     "guarantee that a file is safe.")
     file_content.append(Paragraph(disclaimer, st["note"]))
- 
+
+    id_label = "Task" if sandbox_report else "SHA-256"
+    
     def footer(canvas, doc):
         canvas.saveState()
         canvas.setFont("Helvetica", 8)
         canvas.setFillColor(colors.grey)
-        canvas.drawString(20 * mm, 10 * mm, f"Verdict: {verdict.label}  |  Task {sandbox_report.task_id}")
+        canvas.drawString(20 * mm, 10 * mm, f"Verdict: {verdict.label}  |  {id_label} {task_id}")
         canvas.drawRightString(A4[0] - 20 * mm, 10 * mm, f"Page {doc.page}")
         canvas.restoreState()
  
     doc = SimpleDocTemplate(
         str(out_path), pagesize=A4, leftMargin=20 * mm, rightMargin=20 * mm,
         topMargin=18 * mm, bottomMargin=18 * mm,
-        title=f"Dynamic Analysis Report - {sandbox_report.task_id}", author="Dynamic analysis pipeline",
+        title=f"{title} - {task_id}", author="Analysis pipeline"
     )
     doc.build(file_content, onFirstPage=footer, onLaterPages=footer)
     return out_path

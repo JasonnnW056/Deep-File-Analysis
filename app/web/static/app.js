@@ -13,18 +13,24 @@ document.querySelectorAll('.ebar i[data-w]').forEach(i => {
   i.style.width = i.dataset.w + '%';
 });
 
-// Download the JSON report (pretty-printed)
+// // Download the JSON report (pretty-printed)
+// const dl = document.getElementById('download');
+// if (dl) {
+//   dl.addEventListener('click', () => {
+//     const data = JSON.stringify(
+//       JSON.parse(document.getElementById('report-data').textContent), null, 2);
+//     const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+//     const a = Object.assign(document.createElement('a'),
+//       { href: url, download: dl.dataset.filename || 'report.json' });
+//     a.click();
+//     setTimeout(() => URL.revokeObjectURL(url), 1000);
+//   });
+// }
+
+// Download the PDF report
 const dl = document.getElementById('download');
 if (dl) {
-  dl.addEventListener('click', () => {
-    const data = JSON.stringify(
-      JSON.parse(document.getElementById('report-data').textContent), null, 2);
-    const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
-    const a = Object.assign(document.createElement('a'),
-      { href: url, download: dl.dataset.filename || 'report.json' });
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  });
+  dl.addEventListener('click', () => { window.location.href = dl.dataset.href; });
 }
 
 // Upload page: show file name and size, drag and drop, busy state
