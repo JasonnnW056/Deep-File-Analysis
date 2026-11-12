@@ -3,6 +3,15 @@
 
 {% macro sev(s) %}<span class="sev sev-{{ s }}">{{ s }}</span>{% endmacro %}
 
+{# Generates HTML table rows dynamically from a list of security findings or signals. #}
+{% macro sig_rows(rows) %}
+  {% for sg in rows %}
+    {% set n = sg.get('severity') or 0 %}
+    {% set lvl = 'high' if n >= 3 else ('medium' if n == 2 else ('low' if n == 1 else 'info')) %}
+    <tr><td>{{ sev(lvl) }}</td><td><code>{{ sg.get('name') }}</code></td><td>{{ sg.get('description') or '' }}</td></tr>
+  {% endfor %}
+{% endmacro %}
+
 {# Explains a skipped / failed / missing analyzer. Prints nothing when status is ok. #}
 {% macro notice(env, label) %}
   {% if env is none %}<p class="notice">{{ label }} did not run.</p>
@@ -45,7 +54,9 @@
   {% endif %}
 {% endmacro %}
 
+
 {% block content %}
+{% set first_tab = 'dynamic' if result.dynamic else 'findings' %}
 {% set s = result.summary %}
 {% set ft = result.analyzers.get('filetype') %}
 {% set pe = result.analyzers.get('pe') %}
@@ -55,6 +66,9 @@
 {% set counts = s.get('severity_counts') or {} %}
 {% set info_n = counts.get('info', 0) %}
 {% set flagged_n = s.get('finding_count', 0) - info_n %}
+{% set sbv = (result.dynamic or {}).get('verdict') or {} %}
+{% set st_level = s.get('static_risk_level', risk) %}
+{% set st_score = s.get('static_score', score) %}
 
 <a class="back" href="{{ url_for('web.index') }}">&larr; Scan another file</a>
 
@@ -69,12 +83,12 @@
     <p class="meta">
       {% if result.file.size is not none %}{{ "{:,}".format(result.file.size) }} bytes{% endif %}
       {% if result.hashes.get('sha256') %}<span class="dot">&middot;</span>SHA-256 <code>{{ result.hashes.sha256[:16] }}…</code>{% endif %}
-    </p>
+    </p>{% if sbv %}
     <p class="chips">
-      {% for name, env in result.analyzers.items() %}
-        <span class="chip chip-{{ env.status }}">{{ name }}: {{ env.status }}</span>
-      {% endfor %}
+      <span class="chip">Static: {{ st_level }} ({{ st_score }}/100)</span>
+      <span class="chip">Sandbox: {{ sbv.get('label') }}{% if sbv.get('confidence') is not none %} {{ sbv.confidence|round|int }}%{% endif %} &middot; CAPE {{ result.dynamic.get('cape_score') }}/{{ result.dynamic.get('max_score') or 10 }}</span>
     </p>
+{% endif %}
   </div>
 
   <div class="verdict-box">
@@ -87,14 +101,12 @@
     </div>
     <div class="verdict-text">
       <p class="verdict">{% if risk == 'none' %}No findings{% else %}{{ risk|capitalize }} risk{% endif %}</p>
-      <p class="muted">{{ flagged_n }} finding{{ '' if flagged_n == 1 else 's' }}{% if info_n %} &middot; {{ info_n }} info{% endif %}</p>
-      <p class="sevline">
-        {% for k in ('high', 'medium', 'low') %}{% if counts.get(k) %}<span class="sev sev-{{ k }}">{{ counts[k] }} {{ k }}</span>{% endif %}{% endfor %}
+      <p class="muted">
+        {{ flagged_n }} static finding{{ '' if flagged_n == 1 else 's' }}{% if info_n %} &middot; {{ info_n }} info{% endif %}
+        {% if sbv %}&middot; {{ (result.dynamic.get('signatures') or [])|length }} sandbox signatures{% endif %}
       </p>
-      {% if s.get('analyzers_failed') %}
-        <p class="muted small">Incomplete: {{ s.analyzers_failed|join(', ') }} failed.</p>
-      {% elif risk == 'none' %}
-        <p class="muted small">This does not prove the file is safe.</p>
+      {% if sbv and risk != st_level %}
+        <p class="muted small">Raised from {{ st_level }} (static) by the sandbox verdict.</p>
       {% endif %}
     </div>
   </div>
@@ -113,13 +125,14 @@
 {% endif %}
 
 <nav class="tabs" role="tablist" aria-label="Report sections">
-  <button role="tab" aria-selected="true"  data-tab="findings">Findings <span class="count">{{ result.findings|length }}</span></button>
+  {% if result.dynamic %}
+  <button role="tab" aria-selected="{{ 'true' if first_tab == 'dynamic' else 'false' }}" data-tab="dynamic">Dynamic findings <span class="count">{{ (result.dynamic.get('signatures') or [])|length }}</span></button>
+  {% endif %}
+  <button role="tab" aria-selected="{{ 'true' if first_tab == 'findings' else 'false' }}" data-tab="findings">Static findings <span class="count">{{ result.findings|length }}</span></button>
   <button role="tab" aria-selected="false" data-tab="hashes">Hashes</button>
   <button role="tab" aria-selected="false" data-tab="pe">PE info</button>
   <button role="tab" aria-selected="false" data-tab="yara">YARA {% if ya %}<span class="count">{{ (ya.data or {}).get('match_count', 0) }}</span>{% endif %}</button>
-  {% if result.dynamic %}
-  <button role="tab" aria-selected="false" data-tab="dynamic">Dynamic <span class="count">{{ (result.dynamic.get('signatures') or [])|length }}</span></button>
-  {% endif %}
+  
   <button role="tab" aria-selected="false" data-tab="details">Details</button>
   <button role="tab" aria-selected="false" data-tab="raw">Raw JSON</button>
   {% if result.pdf_name %}
@@ -127,6 +140,26 @@
           data-href="{{ url_for('web.download_pdf', name=result.pdf_name) }}">Download PDF report</button>
   {% endif %}
 </nav>
+
+{% if sbv %}
+{% set sb_sev = {'MALWARE': 'high', 'SUSPICIOUS': 'medium'}.get(sbv.get('label'), 'info') %}
+{% set st_sev = st_level if st_level in ('high', 'medium', 'low') else 'info' %}
+{% set fin_sev = risk if risk in ('high', 'medium', 'low') else 'info' %}
+<details class="why-final risk-{{ risk }}">
+  <summary>Why the final risk is {{ risk }}</summary>
+  <div class="why-body">
+    <dl class="why-rows">
+      <div><dt>Static</dt>
+           <dd>{{ sev(st_sev) }} <span class="muted small">{{ st_level }} &middot; {{ st_score }}/100</span></dd></div>
+      <div><dt>Sandbox</dt>
+           <dd>{{ sev(sb_sev) }} <span class="muted small">{{ sbv.get('label') }}{% if sbv.get('confidence') is not none %} {{ sbv.confidence|round|int }}%{% endif %} &middot; CAPE {{ result.dynamic.get('cape_score') }}/{{ result.dynamic.get('max_score') or 10 }}</span></dd></div>
+      <div class="why-final-row"><dt>Final</dt>
+           <dd>{{ sev(fin_sev) }} <span class="muted small">higher of the two</span></dd></div>
+    </dl>
+    <p class="muted small">The higher result wins, so a clean static scan can't hide bad behavior, and a quiet sandbox run can't hide a bad static result. The sandbox reasons are listed in the Dynamic tab.</p>
+  </div>
+</details>
+{% endif %}
 
 {# ---- Findings ---- #}
 <section class="panel" id="tab-findings" role="tabpanel">
@@ -291,17 +324,22 @@
   ]) }}
 
   <h3>Behavior signatures ({{ sigs|length }})</h3>
+  {% set sig_limit = 8 %}
   {% if sigs %}
-    <table class="grid">
+    <table class="grid sigs">
+      <colgroup><col style="width:6.5rem"><col style="width:16rem"><col></colgroup>
       <thead><tr><th>Severity</th><th>Signature</th><th>Description</th></tr></thead>
-      <tbody>
-      {% for sg in sigs %}
-        {% set n = sg.get('severity') or 0 %}
-        {% set lvl = 'high' if n >= 3 else ('medium' if n == 2 else ('low' if n == 1 else 'info')) %}
-        <tr><td>{{ sev(lvl) }}</td><td><code>{{ sg.get('name') }}</code></td><td>{{ sg.get('description') or '' }}</td></tr>
-      {% endfor %}
-      </tbody>
+      <tbody>{{ sig_rows(sigs[:sig_limit]) }}</tbody>
     </table>
+    {% if sigs|length > sig_limit %}
+      <details class="more">
+        <summary>Show {{ sigs|length - sig_limit }} more signature{{ '' if sigs|length - sig_limit == 1 else 's' }}</summary>
+        <table class="grid sigs">
+          <colgroup><col style="width:6.5rem"><col style="width:16rem"><col></colgroup>
+          <tbody>{{ sig_rows(sigs[sig_limit:]) }}</tbody>
+        </table>
+      </details>
+    {% endif %}
   {% else %}<p class="muted">No signatures triggered.</p>{% endif %}
 
   <h3>MITRE ATT&amp;CK techniques ({{ (dyn.get('ttps') or [])|length }})</h3>

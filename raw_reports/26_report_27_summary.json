@@ -1,0 +1,47 @@
+{
+  "task_id": "27",
+  "cape_score": 1.6,
+  "max_score": 10.0,
+  "file": {
+    "name": "26_report.pdf",
+    "size": 12852,
+    "type": "PDF document, version 1.4, 4 page(s)",
+    "md5": "a60032ae26aa9f6736f5d1690db44c44",
+    "sha1": "cb2d37da42287c5e8416dbdc66bf4cf4ee2624cc",
+    "sha256": "171db219283974748e3880c42d245f01a238789e20c82126802dd65686eb3f07"
+  },
+  "detonation_duration": 22,
+  "malware_detected": null,
+  "signatures": [
+    {
+      "name": "binary_yara",
+      "description": "Binary file triggered YARA rule",
+      "severity": 3,
+      "ttps": []
+    }
+  ],
+  "ttps": [],
+  "behavior": {
+    "executed_commands": [],
+    "files_written": [],
+    "files_deleted": [],
+    "registry_written": [],
+    "mutexes": [],
+    "services_created": []
+  },
+  "network": {
+    "hosts": [],
+    "domains": [
+      {
+        "domain": "www.msftconnecttest.com",
+        "ip": "23.211.242.121"
+      }
+    ],
+    "http": [],
+    "tcp_count": 0,
+    "udp_count": 11
+  },
+  "dropped_files": [],
+  "total_extracted_payloads": 0,
+  "total_seconds": 30.08
+}

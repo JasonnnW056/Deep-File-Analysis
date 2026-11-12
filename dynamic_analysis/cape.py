@@ -116,6 +116,31 @@ class cape_client:
 def get_head(items: Any, n: int= 50):
         return list(items)[:n] if items else []
 
+def collect_ttps(report: dict, signatures: list) -> list:
+    found = []
+
+    def add(t):
+        if isinstance(t, dict):
+            t = t.get("ttp") or t.get("t_id") or t.get("id")
+        if t:
+            found.append(str(t))
+
+    raw = report.get("ttps") or []
+    if isinstance(raw, dict):
+        raw = list(raw.keys())
+    for item in raw:
+        if isinstance(item, dict) and isinstance(item.get("ttps"), list):
+            for t in item["ttps"]:
+                add(t)
+        else:
+            add(item)
+
+    for s in signatures:
+        for t in s.get("ttps") or []:
+            add(t)
+
+    return list(dict.fromkeys(found))
+
 def normalize_report(report:dict, task_id:int)-> sandbox_report:
     info= report.get("info",{}) or {}
     target= (report.get("target",{})or {}).get("file",{}) or {}
@@ -132,13 +157,13 @@ def normalize_report(report:dict, task_id:int)-> sandbox_report:
         })
     signatures.sort(key=lambda s: s["severity"] or 0, reverse= True) 
 
-    ttps= report.get("ttps") or []
-    if isinstance(ttps, dict):
-        ttps= list(ttps.keys())
-    else:
-        #If ttps in different key name
-        ttps= [t.get("ttp") if isinstance(t, dict) else t for t in ttps]
-    ttps= list(dict.fromkeys(t for t in ttps if t))
+    ttps = collect_ttps(report, signatures)
+    # if isinstance(ttps, dict):
+    #     ttps= list(ttps.keys())
+    # else:
+    #     #If ttps in different key name
+    #     ttps= [t.get("ttp") if isinstance(t, dict) else t for t in ttps]
+    # ttps= list(dict.fromkeys(t for t in ttps if t))
 
     file_dropped= []
 
@@ -224,7 +249,7 @@ class cape_backend():
 
         report= self.client.get_report(task_id)
         result= normalize_report(report, task_id)
-        result.elapsed_seconds= round(time.monotonic()-start_timer, 2)
+        result.total_seconds = round(time.monotonic() - start_timer, 2)
         return result
      
 # client= cape_client("http://localhost:8000", token=None)

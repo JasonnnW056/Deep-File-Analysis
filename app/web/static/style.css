@@ -256,3 +256,30 @@ table.history td { vertical-align: middle; white-space: nowrap; }
 .mini { display: inline-block; width: 3.5rem; height: .45rem; background: var(--line); border-radius: 99px;
   overflow: hidden; vertical-align: middle; margin: 0 .3rem 0 .5rem; }
 .mini i { display: block; height: 100%; background: var(--risk, var(--accent)); }
+
+/* ---------- why the final risk ---------- */
+.why-final { margin: 0 0 1.2rem; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: inset 4px 0 0 var(--risk), var(--shadow); }
+.why-final summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: .75rem 1rem .75rem 1.3rem; list-style: none; cursor: pointer;
+  color: var(--ink); font-size: .92rem; font-weight: 600; }
+.why-final summary::-webkit-details-marker { display: none; }
+.why-final summary::after { content: ""; width: .55rem; height: .55rem; flex-shrink: 0;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg); transition: transform .15s; margin-top: -.2rem; }
+.why-final[open] summary::after { transform: rotate(-135deg); margin-top: .2rem; }
+.why-final[open] summary { border-bottom: 1px solid var(--line); }
+.why-body { padding: .9rem 1rem 1rem 1.3rem; }
+.why-body p { margin: .8rem 0 0; }
+.why-rows { margin: 0; display: grid; gap: .5rem; }
+.why-rows > div { display: grid; grid-template-columns: 5.5rem 1fr; align-items: center; gap: .6rem; }
+.why-rows dt { color: var(--muted); font-size: .85rem; font-weight: 500; }
+.why-rows dd { margin: 0; display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.why-rows .why-final-row { padding-top: .5rem; border-top: 1px dashed var(--line); }
+.why-rows .why-final-row dt { color: var(--ink); font-weight: 650; }
+
+table.sigs { table-layout: fixed; }
+table.sigs td code { overflow-wrap: anywhere; }
+details.more { margin-top: 0; }
+details.more > summary { padding: .6rem .6rem; border-bottom: 1px solid var(--line); font-weight: 500; }
+details.more[open] > summary { border-bottom: 0; }

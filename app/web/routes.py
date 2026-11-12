@@ -35,6 +35,7 @@ atexit.register(shutil.rmtree, _PDF_DIR, ignore_errors=True)
 
 _PDF_NAME= re.compile(r"^[A-Za-z0-9_-]+_report\.pdf$")
 
+_LEVELS = ["none", "low", "medium", "high"]
 def _safe_name(name):
     """Keep the real file name (extensions matter for analysis) but make it safe to write."""
     base = (name or "upload").replace("\\", "/").rsplit("/", 1)[-1]
@@ -119,6 +120,24 @@ def is_sandbox_up():
     except requests.RequestException:
         return False
 
+def _merge_sandbox_into_summary(report, v):
+    """Make the page header reflect static + sandbox, keeping the static values."""
+    summary = report.setdefault("summary", {})
+    static_level = summary.get("risk_level") or "none"
+    static_score = summary.get("score") or 0
+
+    sandbox_level = "high" if v.label == "MALWARE" else "none"
+    sandbox_score = round((v.risk_score or 0) * 100)
+
+    # keep the originals for display
+    summary["static_risk_level"] = static_level
+    summary["static_score"] = static_score
+
+    # the final header values: the more severe of the two
+    summary["risk_level"] = max(static_level, sandbox_level, key=_LEVELS.index)
+    summary["score"] = max(static_score, sandbox_score)
+    summary["verdict_source"] = "static+sandbox"
+
 def _run_hybrid_stage(path, report):
     """Hybrid = the fast static pass plus dynamic analysis.
 
@@ -155,6 +174,7 @@ def _run_hybrid_stage(path, report):
     try:
         v = set_verdict(sb_report, report)
         report_dict["verdict"] = {"label": v.label, "confidence": v.confidence_score, "reasons": v.reasons}
+        _merge_sandbox_into_summary(report, v)
     except Exception:
         current_app.logger.exception("Verdict failed")
 
