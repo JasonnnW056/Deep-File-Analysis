@@ -104,6 +104,8 @@ def dynamic_recommendation(label: str, static_report: dict) -> str | None:
     return None
 
 #Set the verdict for dynamic analysis (MALWARE, SUSPICIOUS, LIKELY BENIGN, BENIGN, INCONCLUSIVE)
+MAX_BENIGN_CONFIDENCE = 80.0
+SUSPICIOUS_MIN_SCORE = 0.3
 def set_verdict(report: sandbox_report, static_report: dict | None= None)-> verdict:
     static_line, static_level = static_note(static_report)
     if report.cape_score is None:
@@ -131,9 +133,27 @@ def set_verdict(report: sandbox_report, static_report: dict | None= None)-> verd
     if static_line:
         reasons.append(static_line)
 
-    risk = min(risk, 1.0)
-    label = "MALWARE" if risk >= MALWARE_MIN_SCORE else "BENIGN"
-    confidence = min(50.0 + abs(risk - MALWARE_MIN_SCORE) * 100.0, MAX_CONFIDENCE_SCORE)
+        risk = min(risk, 1.0)
+    if malware_found:
+        risk = max(risk, 0.6)
+
+    # Did the sample actually do anything in the sandbox?
+    observed = any((report.behavior or {}).values())
+    executed = observed and (report.detonation_duration or 0) > 0
+    if risk < 0.2 and not executed:
+        return verdict("INCONCLUSIVE", None, risk,
+                       reasons + ["No activity was observed, so the sample may not have run."])
+
+    if risk >= MALWARE_MIN_SCORE:
+        label = "MALWARE"
+        confidence = min(50.0 + (risk - MALWARE_MIN_SCORE) * 100.0, MAX_CONFIDENCE_SCORE)
+    elif risk >= SUSPICIOUS_MIN_SCORE:
+        label = "SUSPICIOUS"
+        confidence = 55.0
+        reasons.append("The evidence falls between benign and malicious. Review this file manually.")
+    else:
+        label = "BENIGN"
+        confidence = min(50.0 + (MALWARE_MIN_SCORE - risk) * 100.0, MAX_BENIGN_CONFIDENCE)
 
     if label == "BENIGN" and static_level in STATIC_CONFLICT_LEVELS:
         confidence = min(confidence, STATIC_CONFLICT_MAX_CONFIDENCE)
