@@ -32,6 +32,7 @@ upload -> temp folder -> static scan (scan_file)
  ## Requirements
  
 - Python 3.12 (3.10 or newer should work)
+- Install Python 3.13 if the pip intall yara-python did not work
 - A running CAPEv2 server with its REST API enabled (`/apiv2`) and at least one Windows guest, for hybrid scans
 - A Supabase project for scan history (optional; the app keeps working if it is unavailable)
 - Python packages: Flask, requests, reportlab, plus the static analysis libraries listed in `requirements.txt`
