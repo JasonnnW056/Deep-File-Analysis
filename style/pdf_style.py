@@ -26,6 +26,7 @@ def styles() -> dict[str, ParagraphStyle]:
         "note": ParagraphStyle("n", parent=base["Normal"], fontSize=8, leading=11, textColor=colors.grey),
     }
 
+#Table styling
 def table(data: list[list], col_widths: list[float], header: bool = True) -> Table:
     t = Table(data, colWidths=col_widths, repeatRows=1 if header else 0)
     style = [

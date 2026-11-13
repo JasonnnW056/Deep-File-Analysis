@@ -33,15 +33,6 @@ _DDE = re.compile(rb'(?:<w:instrText[^>]*>|w:instr=")\s*(DDEAUTO|DDE)\b')
 
 
 _result, _finding = make_helpers("office_analyzer")
-# def _result(status, error=None, data=None, findings=None):
-#     return {"analyzer": ANALYZER_NAME, "status": status, "error": error,
-#             "data": data or {}, "findings": findings or []}
-
-
-# def _finding(fid, severity, message, **detail):
-#     return {"id": fid, "analyzer": ANALYZER_NAME, "severity": severity,
-#             "message": message, "detail": detail}
-
 
 def _u16(s: str) -> bytes:
     return s.encode("utf-16-le")

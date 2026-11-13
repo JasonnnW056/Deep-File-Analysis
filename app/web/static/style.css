@@ -259,7 +259,7 @@ table.history td { vertical-align: middle; white-space: nowrap; }
   overflow: hidden; vertical-align: middle; margin: 0 .3rem 0 .5rem; }
 .mini i { display: block; height: 100%; background: var(--risk, var(--accent)); }
 
-/* ---------- why the final risk ---------- */
+/* ---------- why the final risk style ---------- */
 .why-final { margin: 1.1rem 0 1.2rem; background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--radius); box-shadow: inset 4px 0 0 var(--risk), var(--shadow); }
 .why-final summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem;

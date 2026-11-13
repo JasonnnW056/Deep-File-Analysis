@@ -36,11 +36,12 @@ VERDICT_COLORS = {
 
 @dataclass
 class verdict:
-    label:str #MALWARE, BENIGN, INCONCLUSIVE
+    label:str #MALWARE, SUSPICIOUS, LIKELY BENIGN, BENIGN, INCONCLUSIVE
     confidence_score: float| None
     risk_score: float| None
     reasons: list[str]
 
+#Get the dectection findings actual content from the list
 def detection_findings(detections:Any)-> list[str]:
     if not detections:
         return []
@@ -54,7 +55,7 @@ def detection_findings(detections:Any)-> list[str]:
     return findings
 
 def static_note(static_report: dict | None):
-    """One line for the verdict reasons, plus the static risk level (None if no static scan)."""
+    # One line for the verdict reasons, plus the static risk level (None if no static scan)
     if not static_report:
         return None, None
     summary = static_report.get("summary") or {}
@@ -66,6 +67,7 @@ def static_note(static_report: dict | None):
         line += " Some analyzers failed, so this may be incomplete."
     return line, level
 
+#Set the verdict for the static analysis (MALWARE, SUSPICIOUS, LIKELY BENIGN, BENIGN, INCONCLUSIVE)
 def set_static_verdict(static_report: dict) -> verdict:
     line, level = static_note(static_report)
     reasons = [line or "No static risk level available."]
@@ -101,6 +103,7 @@ def dynamic_recommendation(label: str, static_report: dict) -> str | None:
         return "Dynamic analysis is recommended to confirm."
     return None
 
+#Set the verdict for dynamic analysis (MALWARE, SUSPICIOUS, LIKELY BENIGN, BENIGN, INCONCLUSIVE)
 def set_verdict(report: sandbox_report, static_report: dict | None= None)-> verdict:
     static_line, static_level = static_note(static_report)
     if report.cape_score is None:
@@ -139,6 +142,7 @@ def set_verdict(report: sandbox_report, static_report: dict | None= None)-> verd
                        "the sandbox), so this verdict is less certain.")
     return verdict(label, confidence, risk, reasons)
 
+#Helper function
 def make_to_text(item: Any, limit: int = 140):
     if isinstance(item, dict):
         if "uri" in item:
@@ -190,6 +194,7 @@ def yara_text(env: dict) -> str:
         return f"not run ({make_to_text(env.get('error') or env.get('status') or 'unknown')})"
     return f"{(env.get('data') or {}).get('match_count', 0)} rule match(es)"
 
+#Add static findings section to the pdf if there is static analysis run
 def add_static_section(file_content: list, static_report: dict, st: dict, width: float,
                        max_items: int, dynamic_sha256: str | None= None) -> None:
     summary = static_report.get("summary") or {}
@@ -239,7 +244,7 @@ def add_static_section(file_content: list, static_report: dict, st: dict, width:
     for err in static_report.get("errors") or []:
         file_content.append(Paragraph(f"Static scan error: {make_to_text(err, 200)}", st["note"]))
 
-    # ---- which analyzers actually checked the file
+    # Which analyzers actually checked the file
     if analyzers:
         data = [[Paragraph(h, st["head"]) for h in ("Analyzer", "Status", "Result")]]
         for name, env in analyzers.items():
@@ -256,7 +261,7 @@ def add_static_section(file_content: list, static_report: dict, st: dict, width:
                 "Skipped analyzers did not apply to this file type. Failed analyzers did not check "
                 "the file, so no findings from them does not mean it is clean.", st["note"]))
 
-    # ---- findings
+    # Findings
     file_content.append(Paragraph(f"Static findings ({len(findings)})", st["h"]))
     if findings:
         data = [[Paragraph(h, st["head"]) for h in ("Severity", "Analyzer", "Finding")]]
@@ -305,6 +310,7 @@ def add_static_section(file_content: list, static_report: dict, st: dict, width:
             file_content.append(Spacer(1, 6))
             file_content.append(table(data, [width * 0.35, width * 0.20, width * 0.20, width * 0.25]))
 
+#Add dynamic findings section to the pdf if there is dynamic analysis run
 def add_dynamic_section(file_content: list, sandbox_report, st: dict, width: float,
                         max_items: int) -> None:
     # ---- signatures
@@ -325,14 +331,14 @@ def add_dynamic_section(file_content: list, sandbox_report, st: dict, width: flo
     else:
         file_content.append(Paragraph("No signatures triggered.", st["muted"]))
 
-    # ---- TTPs
+    # TTPs
     file_content.append(Paragraph(f"MITRE ATT&amp;CK techniques ({len(sandbox_report.ttps)})", st["h"]))
     if sandbox_report.ttps:
         file_content.append(Paragraph(", ".join(make_to_text(t, 40) for t in sandbox_report.ttps), st["body"]))
     else:
         file_content.append(Paragraph("None reported.", st["muted"]))
 
-    # ---- behavior
+    # Behavior
     file_content.append(Paragraph("Observed behavior", st["h"]))
     labels = {
         "executed_commands": "Commands executed", "files_written": "Files written",
@@ -350,7 +356,7 @@ def add_dynamic_section(file_content: list, sandbox_report, st: dict, width: flo
         data.append([Paragraph(f"{label} ({len(items)})", st["cellb"]), Paragraph(text, st["cell"])])
     file_content.append(table(data, [width * 0.25, width * 0.75], header=False))
 
-    # ---- network
+    # Network
     net = sandbox_report.network or {}
     file_content.append(Paragraph("Network activity", st["h"]))
     data = []
@@ -365,7 +371,7 @@ def add_dynamic_section(file_content: list, sandbox_report, st: dict, width: flo
                  Paragraph(f"{net.get('tcp_count', 0)} TCP, {net.get('udp_count', 0)} UDP", st["cell"])])
     file_content.append(table(data, [width * 0.25, width * 0.75], header=False))
 
-    # ---- dropped files
+    # Dropped files
     file_content.append(Paragraph(
         f"Dropped files ({len(sandbox_report.dropped_files)}) and extracted payloads "
         f"({sandbox_report.total_extracted_payloads})", st["h"]))
@@ -380,6 +386,7 @@ def add_dynamic_section(file_content: list, sandbox_report, st: dict, width: flo
     else:
         file_content.append(Paragraph("No files dropped.", st["muted"]))
 
+#Generating the final report
 def generate_report(sandbox_report: sandbox_report|None, out_path: str | Path, max_items: int = 15,
                     static_report: dict | None= None) -> Path:
 
@@ -398,7 +405,7 @@ def generate_report(sandbox_report: sandbox_report|None, out_path: str | Path, m
     width = A4[0] - 40 * mm   # usable width
     file_content: list = []
 
-    # ---- title
+    # Title
     if sandbox_report and static_report:
         title = "Static and Dynamic Analysis Report"
     elif static_report:
@@ -412,7 +419,7 @@ def generate_report(sandbox_report: sandbox_report|None, out_path: str | Path, m
        else f"SHA-256 {escape(sha[:16])}"), st["sub"]))
     file_content.append(Spacer(1, 10))
  
-    # ---- verdict banner
+    # Verdict banner
     verdict_cell = Paragraph(
         f'<font size="9" color="white">FINAL VERDICT</font><br/>'
         f'<font size="26" color="white"><b>{verdict.label}</b></font>', st["banner_l"])
@@ -424,10 +431,10 @@ def generate_report(sandbox_report: sandbox_report|None, out_path: str | Path, m
 
     if sandbox_report is None and static_report:
         if static_report.get("mode_note"):
-            # hybrid was requested but the sandbox missing/offline/timed out/errored
+            # Hybrid was requested but the sandbox missing/offline/timed out/errored
             why = static_report["mode_note"]
         elif static_report.get("scan_mode") == "fast":
-            # the user chose fast mode, so nothing went wrong
+            # The user chose fast mode, so nothing went wrong
             why = "Fast scan mode was selected, so dynamic analysis was not requested."
         else:
             why = "Dynamic analysis was not run for this sample."
@@ -461,7 +468,7 @@ def generate_report(sandbox_report: sandbox_report|None, out_path: str | Path, m
         "Confidence reflects how far the evidence sits from the malware/benign boundary. "
         "It is a heuristic, not a calibrated probability.", st["note"]))
  
-    # ---- sample details
+    # Sample details
     if sandbox_report:
         f = sandbox_report.file or {}
     else:
@@ -485,19 +492,19 @@ def generate_report(sandbox_report: sandbox_report|None, out_path: str | Path, m
     data = [[Paragraph(k, st["cellb"]), Paragraph(make_to_text(v) if v is not None else "-", st["cell"])] for k, v in rows]
     file_content.append(table(data, [width * 0.25, width * 0.75], header=False))
 
-    # ---- static analysis
+    # Static analysis
     if static_report:
         add_static_section(file_content, static_report, st, width, max_items,
                            dynamic_sha256=f.get("sha256"))
 
-    # ---- dynamic analysis   
+    # Dynamic analysis   
     if sandbox_report:
         add_dynamic_section(file_content, sandbox_report, st, width, max_items)
     else:
         file_content.append(Paragraph("Dynamic analysis", st["h"]))
         file_content.append(Paragraph("Dynamic analysis was not run for this sample.", st["muted"]))
         
-    # ---- disclaimer
+    # Disclaimer
     file_content.append(Spacer(1, 16))
     if sandbox_report:
         disclaimer = ("This verdict comes from automated dynamic analysis in a sandbox with a limited run time. "
@@ -512,7 +519,8 @@ def generate_report(sandbox_report: sandbox_report|None, out_path: str | Path, m
     file_content.append(Paragraph(disclaimer, st["note"]))
 
     id_label = "Task" if sandbox_report else "SHA-256"
-    
+
+    #Set footer content for the pdf file
     def footer(canvas, doc):
         canvas.saveState()
         canvas.setFont("Helvetica", 8)

@@ -7,6 +7,7 @@ class detonation_error(Exception):
 class detonation_timeout(detonation_error):
     """The analysis did not finish within the wait time set"""
 
+#Sandbox report format
 @dataclass
 class sandbox_report:
     task_id: str
@@ -30,5 +31,6 @@ class sandbox_report:
         if not include_raw:
             data.pop("raw", None)
         return data
-
+    
+#To get the dynamic analysis report
 status_callback= Callable[[str], None]

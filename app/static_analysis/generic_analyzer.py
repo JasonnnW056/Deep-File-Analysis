@@ -69,16 +69,6 @@ _DOS_STUBS = (b"This program cannot be run in DOS mode",
 
 _result, _finding = make_helpers("generic_analyzer")
 
-# def _result(status, error=None, data=None, findings=None):
-#     return {"analyzer": ANALYZER_NAME, "status": status, "error": error,
-#             "data": data or {}, "findings": findings or []}
-
-
-# def _finding(fid, severity, message, **detail):
-#     return {"id": fid, "analyzer": ANALYZER_NAME, "severity": severity,
-#             "message": message, "detail": detail}
-
-
 def _entropy(buf: bytes) -> float:
     n = len(buf)
     if n == 0:
@@ -212,9 +202,6 @@ def analyze_generic(path) -> dict:
         "embedded_pe_offsets": offsets[:10],
     }
     return _result("ok", data=out, findings=findings)
-
-# D:\Users\270492384\AppData\Local\Temp\dfa_test
-# C:\Windows\System32\notepad.exe
 
 if __name__ == "__main__":
     import sys

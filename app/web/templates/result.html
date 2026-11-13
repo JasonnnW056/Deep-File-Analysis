@@ -317,9 +317,6 @@
         Confidence<b>{% if dv.get('confidence') is not none %}{{ dv.confidence|round|int }}%{% else %}n/a{% endif %}</b>
       </div>
     </div>
-    {# {% if dv.get('reasons') %}
-      <ul class="plain">{% for r in dv.reasons %}<li>{{ r }}</li>{% endfor %}</ul>
-    {% endif %} #}
   {% else %}
     <p class="notice">The sandbox ran, but no verdict could be calculated.</p>
   {% endif %}

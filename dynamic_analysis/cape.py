@@ -28,6 +28,7 @@ class cape_client:
             delay= 2.0** (attempt+1)
         return max(0.0, min(delay,60.0))
 
+    #Make request to the CAPE Backend
     def make_request(self, method:str, path:str, **kwargs):
         url= f"{self.api}{path}"
         attempt= 0 
@@ -98,10 +99,6 @@ class cape_client:
             print("Error")
             raise detonation_error(f"Unexpected response: {body}")
         return int(task_ids[0])
-        # body= resp.json()
-        # print(body)
-        # return int(body["data"]["task_ids"][0])
-        # return int(resp.json()["data"]["task_ids"][0])
 
     def get_status(self, task_id:int):
         body= self.make_request("GET", f"/tasks/status/{task_id}/")
@@ -116,6 +113,7 @@ class cape_client:
 def get_head(items: Any, n: int= 50):
         return list(items)[:n] if items else []
 
+#To parse the TTPS
 def collect_ttps(report: dict, signatures: list) -> list:
     found = []
 
@@ -155,6 +153,7 @@ def detection_families(detections) -> list[str]:
             names.append(str(d))
     return list(dict.fromkeys(names)) 
 
+#To normalize report from the raw report generated
 def normalize_report(report:dict, task_id:int)-> sandbox_report:
     info= report.get("info",{}) or {}
     target= (report.get("target",{})or {}).get("file",{}) or {}

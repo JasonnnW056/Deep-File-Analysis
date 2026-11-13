@@ -7,13 +7,10 @@ from flask import Blueprint, abort, current_app, jsonify, render_template, reque
 from app.static_analysis.scanner import scan_file
 from app.db import save_scan, get_history, get_scan
 from pathlib import Path
-from dynamic_analysis.backend_base import sandbox_report
 
 #To delete the report generated
 import atexit
 import shutil
-import sys
-import signal
 
 try:
     from dynamic_analysis.scan import dynamic_scan
@@ -238,9 +235,6 @@ def _scan_upload(uploaded, mode=DEFAULT_MODE):
     return report
 
 
-# @bp.route("/", methods=["GET"])
-# def index():
-#     return render_template("index.html")
 
 @bp.route("/", methods=["GET"])
 def home():
