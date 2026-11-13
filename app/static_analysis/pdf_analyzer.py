@@ -1,6 +1,4 @@
-"""pdf_analyzer.py - static PDF triage. No parsing library: it scans the raw bytes
-(and the contents of object streams) for risky PDF keywords."""
-
+# pdf_analyzer.py - static PDF triage. No parsing library: it scans the raw bytes and the contents of object streams) for risky PDF keywords.
 import re
 import zlib
 from collections import Counter
@@ -30,22 +28,14 @@ _DOC_LEVEL_JS = re.compile(rb"/JavaScript\s*(?:\d+\s+\d+\s+R|<<)")
 
 
 _result, _finding = make_helpers("pdf_analyzer")
-# def _result(status, error=None, data=None, findings=None):
-#     return {"analyzer": ANALYZER_NAME, "status": status, "error": error,
-#             "data": data or {}, "findings": findings or []}
 
-
-# def _finding(fid, severity, message, **detail):
-#     return {"id": fid, "analyzer": ANALYZER_NAME, "severity": severity,
-#             "message": message, "detail": detail}
 
 
 def _printable(b: bytes) -> str:
     return "".join(chr(c) if 32 <= c < 127 else "." for c in b)
 
 
-def _js_contexts(blobs, limit=3):
-    """A few short snippets around JavaScript keywords, so a person can see what it is."""
+def _js_contexts(blobs, limit=3):  # A few short snippets around JavaScript keywords, so a person can see what it is.
     out = []
     for blob in blobs:
         for m in _JS_KEY.finditer(blob):
@@ -70,7 +60,7 @@ def _count_names(buf: bytes, counter: Counter, obfuscated: set):
 
 
 def _object_streams(data: bytes):
-    """Yield decompressed contents of /ObjStm streams (where hidden objects live)."""
+    # Yield decompressed contents of /ObjStm streams (where hidden objects live).
     n = 0
     for m in _STREAM.finditer(data):
         if n >= MAX_OBJSTM:

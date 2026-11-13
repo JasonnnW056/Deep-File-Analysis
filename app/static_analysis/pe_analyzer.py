@@ -45,24 +45,7 @@ NOTABLE_APIS = STRONG_APIS | WEAK_APIS
 
 # ---------- envelope helpers ----------
 _result, _finding = make_helpers("pe_analyzer")
-# def _result(status, error=None, data=None, findings=None):
-#     return {
-#         "analyzer": ANALYZER_NAME,
-#         "status": status,
-#         "error": error,
-#         "data": data or {},
-#         "findings": findings or [],
-#     }
 
-
-# def _finding(fid, severity, message, **detail):
-#     return {
-#         "id": fid,
-#         "analyzer": ANALYZER_NAME,
-#         "severity": severity,
-#         "message": message,
-#         "detail": detail,
-#     }
 
 
 # ---------- parsing helpers ----------
@@ -218,8 +201,7 @@ def _build_findings(data: dict) -> list:
 
 # ---------- public API ----------
 
-def analyze_pe(path, verify_checksum=True) -> dict:
-    """Analyze a PE file. Always returns the standard envelope; never raises on bad input."""
+def analyze_pe(path, verify_checksum=True) -> dict:  # Analyze a PE file. Always returns the standard envelope; never raises on bad input.
     path = Path(path)
 
     if not path.is_file():

@@ -1,5 +1,5 @@
-"""generic_analyzer.py - checks that make sense for ANY file: entropy, URLs/IPs,
-suspicious command strings and embedded Windows executables."""
+#generic_analyzer.py - checks that make sense for ANY file: entropy, URLs/IPs,
+# suspicious command strings and embedded Windows executables.
 
 import ipaddress
 import math
@@ -69,15 +69,6 @@ _DOS_STUBS = (b"This program cannot be run in DOS mode",
 
 _result, _finding = make_helpers("generic_analyzer")
 
-# def _result(status, error=None, data=None, findings=None):
-#     return {"analyzer": ANALYZER_NAME, "status": status, "error": error,
-#             "data": data or {}, "findings": findings or []}
-
-
-# def _finding(fid, severity, message, **detail):
-#     return {"id": fid, "analyzer": ANALYZER_NAME, "severity": severity,
-#             "message": message, "detail": detail}
-
 
 def _entropy(buf: bytes) -> float:
     n = len(buf)
@@ -92,8 +83,7 @@ def _entropy(buf: bytes) -> float:
     return h
 
 
-def _text_blob(data: bytes) -> bytes:
-    """ASCII and UTF-16LE strings joined by newlines (capped)."""
+def _text_blob(data: bytes) -> bytes:     # ASCII and UTF-16LE strings joined by newlines (capped).
     parts, total = [], 0
     for rx, wide in ((_ASCII, False), (_WIDE, True)):
         for m in rx.finditer(data):
