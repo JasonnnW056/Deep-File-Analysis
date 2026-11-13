@@ -12,3 +12,27 @@ A self-hosted malware triage pipeline. It combines static analysis (YARA, PE ins
 - **Combined scoring**: static and dynamic signals are merged into a verdict (`malicious`, `suspicious`, or `benign`) with a confidence score.
 - **Explainable reports**: every verdict comes with the specific evidence behind it, not just a number.
 - **Scan history**: results are stored in SQLite for review and for measuring accuracy against labeled test samples.
+
+## Getting Started
+
+### 1. Clone the Repository 
+```bash
+git clone https://github.com/JasonnnW056/Deep-File-Analysis.git
+```
+
+### 2. Create a Virtual Environment and Install the libraries 
+Windows:
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+```
+### 3. Run the application
+Run the main.py
+```bash
+python main.py
+```
+Go live on scanner.html
+
+### 4. Choose Your Scan Mode and Submit Your File
+
