@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Scan a file · Deep File Analysis{% endblock %}
 {% block content %}
+<div class="back-row"><a class="back" href="{{ url_for('web.home') }}">&larr; Back to homepage</a></div>
 <section class="hero">
   <h1>Analyse a file</h1>
   <p class="lede">Drop in any file and get its hashes, real file type, structure and rule matches in one report.</p>

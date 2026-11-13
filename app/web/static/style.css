@@ -306,3 +306,6 @@ details.more[open] > summary { border-bottom: 0; }
 .fold summary:hover .fold-toggle { filter: brightness(.95); }
 .fold-body { margin-top: .6rem; padding: .6rem .8rem; background: var(--bg);
   border: 1px solid var(--line); border-radius: 8px; max-height: 18rem; overflow: auto; }
+
+  /* ---------- Back to homepage arrow ---------- */
+  .back-row { max-width: 40rem; margin: 0 auto; }

@@ -10,27 +10,3 @@ def dynamic_scan(path: str|Path, *, timeout: int= DEFAULT_TIMEOUT, status: statu
     report= backend.detonate(path, timeout=timeout, status=status)
     
     return report
-    # save_report(report, Path(path), status)
-    
-    # out_dir = Path(os.getenv("RAW_REPORT_DIR", "raw_reports"))
-    # pdf = generate_report(report, out_dir / f"{Path(path).stem}_{report.task_id}_report.pdf", static_report=static_report)
-     
-    # if status:
-    #     status(f"PDF report saved to {pdf}")
-    
-
-# def save_report(report: sandbox_report, sample: Path, status)-> None:
-#     try:
-#         out_dir = Path(os.getenv("RAW_REPORT_DIR", "raw_reports"))
-#         out_dir.mkdir(parents=True, exist_ok=True)
-#         stem = f"{sample.stem}_{report.task_id}"
-
-#         (out_dir / f"{stem}_raw.json").write_text(json.dumps(report.raw, default=str))
-#         (out_dir / f"{stem}_summary.json").write_text(
-#             json.dumps(report.to_dict(), indent=2, default=str)
-#         )
-#         if status:
-#             status(f"reports saved to {out_dir}/{stem}_*.json")
-#     except OSError as exc:
-#         if status:
-#             status(f"could not save reports: {exc}")
