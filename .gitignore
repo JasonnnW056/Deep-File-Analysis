@@ -222,4 +222,3 @@ uploads/
 *.db
 rules/compiled_full.yarc
 rules/*.tmp
-.env

@@ -45,6 +45,8 @@ NOTABLE_APIS = STRONG_APIS | WEAK_APIS
 # ---------- envelope helpers ----------
 _result, _finding = make_helpers("pe_analyzer")
 
+
+
 # ---------- parsing helpers ----------
 
 def _has_mz_header(path: Path) -> bool:
@@ -198,8 +200,7 @@ def _build_findings(data: dict) -> list:
 
 # ---------- public API ----------
 
-def analyze_pe(path, verify_checksum=True) -> dict:
-    """Analyze a PE file. Always returns the standard envelope; never raises on bad input."""
+def analyze_pe(path, verify_checksum=True) -> dict:  # Analyze a PE file. Always returns the standard envelope; never raises on bad input.
     path = Path(path)
 
     if not path.is_file():

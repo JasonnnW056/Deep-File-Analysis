@@ -1,5 +1,5 @@
-"""generic_analyzer.py - checks that make sense for ANY file: entropy, URLs/IPs,
-suspicious command strings and embedded Windows executables."""
+#generic_analyzer.py - checks that make sense for ANY file: entropy, URLs/IPs,
+# suspicious command strings and embedded Windows executables.
 
 import ipaddress
 import math
@@ -82,8 +82,7 @@ def _entropy(buf: bytes) -> float:
     return h
 
 
-def _text_blob(data: bytes) -> bytes:
-    """ASCII and UTF-16LE strings joined by newlines (capped)."""
+def _text_blob(data: bytes) -> bytes:     # ASCII and UTF-16LE strings joined by newlines (capped).
     parts, total = [], 0
     for rx, wide in ((_ASCII, False), (_WIDE, True)):
         for m in rx.finditer(data):

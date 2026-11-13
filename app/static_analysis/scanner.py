@@ -31,8 +31,7 @@ VALID_STATUS = ("ok", "skipped", "error")
 _ANALYZERS = {}
 ANALYZER_TIMEOUT = 45 # seconds per analyzer
 
-def _call_with_timeout(func, path, timeout):
-    """Run func(path) in a worker thread; raise TimeoutError if it takes too long."""
+def _call_with_timeout(func, path, timeout):  # Run func(path) in a worker thread; raise TimeoutError if it takes too long.
     box = {}
 
     def target():
@@ -50,8 +49,7 @@ def _call_with_timeout(func, path, timeout):
         raise box["exc"]
     return box["env"]
 
-def register_analyzer(name, func):
-    """Register func(path) -> envelope under name (replaces an existing one)."""
+def register_analyzer(name, func): # Register func(path) -> envelope under name (replaces an existing one).
     _ANALYZERS[name] = func
 
 
@@ -106,8 +104,7 @@ def _run_analyzer(name, func, path):
     env["findings"] = clean
     return env
 
-def _score(findings):
-    """Return (score 0-100, breakdown). Breakdown = each finding's share of the score."""
+def _score(findings): # Return (score 0-100, breakdown). Breakdown = each finding's share of the score.
     seen = Counter()
     weighted = []
     for f in findings:
@@ -164,8 +161,7 @@ def _summarize(findings, analyzers):
 
 
 
-def scan_file(path, analyzers=None):
-    """Scan one file. Always returns a JSON-serialisable report; never raises."""
+def scan_file(path, analyzers=None): # Scan one file. Always returns a JSON-serialisable report; never raises.
     path = Path(path)
     report = {
         "schema_version": SCHEMA_VERSION,

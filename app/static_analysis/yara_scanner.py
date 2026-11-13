@@ -11,8 +11,7 @@ _lock = threading.Lock()
 
 MAX_YARA_BYTES = 256 * 1024 * 1024   # safety cap, adjust to taste
 
-def _cache_is_fresh():
-    """True if the compiled cache exists and is at least as new as the .yar source."""
+def _cache_is_fresh():  # True if the compiled cache exists and is at least as new as the .yar source.
     try:
         return os.path.getmtime(COMPILED_PATH) >= os.path.getmtime(RULES_PATH)
     except OSError:          # either file missing -> treat cache as unusable
@@ -98,8 +97,7 @@ def _severity_from_meta(meta):
     return sev
 
 
-def analyze_yara(path):
-    """Analyzer for scanner.py: returns the standard envelope."""
+def analyze_yara(path):   # Analyzer for scanner.py: returns the standard envelope.
     try:
         matches = scan_file(str(path))
         if any(m["rule"] == "SCAN_TIMEOUT" for m in matches):
