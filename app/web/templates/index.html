@@ -59,4 +59,44 @@
   </a>
 </p>
 
+<details class="types-box">
+  <summary>Which file types can I scan in the hybrid scan mode?</summary>
+  <p class="muted small">Fast scans read any file up to 50 MB. Hybrid scans also run it, for the types below.</p>
+  {% include "filetypes.html" %}
+</details>
+
+<script>
+(function () {
+  const form = document.getElementById('scan-form');
+  const input = document.getElementById('file');
+  const sub = document.getElementById('drop-sub');
+  const ALLOWED = {{ allowed_exts|tojson }};
+  const hybrid = () => form.querySelector('input[name=mode]:checked').value === 'hybrid';
+  const ok = f => { const i = f.name.lastIndexOf('.'); return i >= 0 && ALLOWED.includes(f.name.slice(i).toLowerCase()); };
+
+  function sync() {                                   // follow the selected mode
+    if (hybrid()) input.setAttribute('accept', ALLOWED.join(','));
+    else input.removeAttribute('accept');
+    if (!input.files.length) {                        // don't overwrite a chosen file's details
+      sub.textContent = hybrid() ? 'Supported types only \u00b7 up to 50 MB' : 'Any file type \u00b7 up to 50 MB';
+    }
+    sub.style.color = '';
+  }
+  form.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', sync));
+  input.addEventListener('change', () => { sub.style.color = ''; });
+  sync();
+
+  form.addEventListener('submit', e => {
+    const f = input.files[0];
+    if (f && hybrid() && !ok(f)) {
+      e.preventDefault();
+      e.stopImmediatePropagation();                   // keeps the loading screen from starting
+      sub.textContent = 'Hybrid scans can’t run this file type. Pick Fast Scan, or see the list below.';
+      sub.style.color = 'var(--high)';
+      const box = document.querySelector('.types-box');
+      if (box) box.open = true;
+    }
+  });
+})();
+</script>
 {% endblock %}

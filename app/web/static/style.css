@@ -260,7 +260,7 @@ table.history td { vertical-align: middle; white-space: nowrap; }
 .mini i { display: block; height: 100%; background: var(--risk, var(--accent)); }
 
 /* ---------- why the final risk ---------- */
-.why-final { margin: 0 0 1.2rem; background: var(--surface); border: 1px solid var(--line);
+.why-final { margin: 1.1rem 0 1.2rem; background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--radius); box-shadow: inset 4px 0 0 var(--risk), var(--shadow); }
 .why-final summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem;
   padding: .75rem 1rem .75rem 1.3rem; list-style: none; cursor: pointer;
@@ -279,6 +279,7 @@ table.history td { vertical-align: middle; white-space: nowrap; }
 .why-rows dd { margin: 0; display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
 .why-rows .why-final-row { padding-top: .5rem; border-top: 1px dashed var(--line); }
 .why-rows .why-final-row dt { color: var(--ink); font-weight: 650; }
+.why-final + .panel { border-top: 1px solid var(--line); border-radius: var(--radius); }
 
 table.sigs { table-layout: fixed; }
 table.sigs td code { overflow-wrap: anywhere; }

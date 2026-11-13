@@ -1,0 +1,14 @@
+{# app/web/templates/filetypes.html -- shows the types listed in FILE_GROUPS (routes.py). Edit the list there, not here. #}
+<div class="types">
+  {% for title, hint, exts in file_groups %}
+  <div class="type-row">
+    <div class="type-name"><strong>{{ title }}</strong><span class="muted small">{{ hint }}</span></div>
+    <div class="type-exts">{% for e in exts %}<code class="ext">{{ e }}</code>{% endfor %}</div>
+  </div>
+  {% endfor %}
+  <div class="type-row no">
+    <div class="type-name"><strong>Not supported</strong><span class="muted small">No matching sandbox</span></div>
+    <div class="type-exts"><code class="ext">Linux programs (.elf)</code><code class="ext">Shell scripts (.sh)</code><code class="ext">macOS apps</code><code class="ext">Android (.apk)</code></div>
+  </div>
+</div>
+<p class="muted small types-note">Documents and Java files only run properly if the sandbox has the matching software installed. Password-protected archives can’t be opened, so extract them first. Any other file type still gets a fast scan.</p>

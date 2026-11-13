@@ -23,7 +23,31 @@ except ImportError:
     dynamic_scan = None
     detonation_error = detonation_timeout = Exception  
 
+FILE_GROUPS = [
+    ("Programs", "Windows programs and installers", [".exe", ".dll", ".msi", ".cpl", ".msix"]),
+    ("Scripts", "Small programs written as text", [".js", ".jse", ".vbs", ".vbe", ".wsf", ".sct", ".ps1", ".bat", ".cmd", ".hta", ".py", ".au3"]),
+    ("Documents", "Office files, PDFs and similar", [".doc", ".docx", ".rtf", ".xls", ".xlsx", ".ppt", ".pptx", ".pub", ".one", ".mdb", ".accdb", ".pdf", ".xps", ".hwp"]),
+    ("Email", "Saved messages", [".eml", ".msg", ".mht"]),
+    ("Archives", "Zipped bundles of files", [".zip", ".rar", ".7z"]),
+    ("Shortcuts and settings", "Files that point to or change something", [".lnk", ".inf", ".reg", ".chm", ".rdp"]),
+    ("Java and Flash", "Browser-era programs", [".jar", ".swf"]),
+]
+ALLOWED_EXTENSIONS = {e for _, _, exts in FILE_GROUPS for e in exts}
+
 bp = Blueprint("web", __name__)
+
+def _is_allowed(filename):
+    return os.path.splitext(filename or "")[1].lower() in ALLOWED_EXTENSIONS
+
+def _blocked(filename, mode):
+    """Only hybrid scans are limited to the supported types."""
+    return mode == "hybrid" and not _is_allowed(filename)
+
+@bp.app_context_processor
+def _inject_file_types():
+    # available in every template, including the 413 error page
+    return {"file_groups": FILE_GROUPS, "allowed_exts": sorted(ALLOWED_EXTENSIONS)}
+
 
 _BAD_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 _RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
@@ -231,7 +255,10 @@ def scan():
     uploaded = request.files.get("file")
     if not uploaded or uploaded.filename == "":
         return render_template("index.html", error="Choose a file to scan."), 400
-    return render_template("result.html", result=_scan_upload(uploaded, _get_mode()))
+    mode = _get_mode()
+    if _blocked(uploaded.filename, mode):
+        return render_template("index.html", error="Hybrid scans only support the file types listed below. Choose a fast scan to check any file."), 415
+    return render_template("result.html", result=_scan_upload(uploaded, mode))
 
 
 @bp.route("/api/scan", methods=["POST"])
@@ -239,7 +266,10 @@ def api_scan():
     uploaded = request.files.get("file")
     if not uploaded:
         return jsonify(error="No file provided"), 400
-    return jsonify(_scan_upload(uploaded, _get_mode()))
+    mode = _get_mode()
+    if _blocked(uploaded.filename, mode):
+        return jsonify(error="Hybrid scans only support the listed file types."), 415
+    return jsonify(_scan_upload(uploaded, mode))
 
 @bp.route("/report/<name>", methods=["GET"])
 def download_pdf(name):

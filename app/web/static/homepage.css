@@ -1,4 +1,4 @@
-/* ---------- homepage explainer ---------- */
+/* ---------- homepage explainer (append to style.css) ---------- */
 .explain { max-width: 56rem; margin: 3.5rem auto 0; }
 .explain h2 { margin: 0 0 .3rem; font-size: 1.35rem; letter-spacing: -.01em; }
 .explain h2.block { margin-top: 3rem; }
@@ -82,3 +82,17 @@ html { scroll-behavior: smooth; }
 .explain .pair h2.block { margin-top: 0; }
 .explain .pair p { max-width: none; }
 @media (max-width: 46rem) { .pair { grid-template-columns: 1fr; gap: 0; } .explain .pair > div + div h2.block { margin-top: 2rem; } }
+
+/* ---------- supported file types ---------- */
+.types { padding: .2rem 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.type-row { display: grid; grid-template-columns: 13rem 1fr; gap: 1rem; align-items: start; padding: .8rem 0; border-bottom: 1px solid var(--line); }
+.type-row:last-child { border-bottom: 0; }
+.type-name strong { display: block; font-size: .95rem; }
+.type-exts { display: flex; flex-wrap: wrap; gap: .35rem; }
+.ext { padding: .1rem .55rem; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); font-size: .8rem; }
+.type-row.no .ext { background: var(--high-bg); color: var(--high); border-color: transparent; }
+.types-note { margin: .7rem 0 0 !important; max-width: none !important; }
+.types-box { max-width: 40rem; margin: 1.2rem auto 0; }
+.types-box > summary { padding: .5rem 0; font-weight: 500; }
+.types-box .type-row { grid-template-columns: 1fr; gap: .4rem; }
+@media (max-width: 46rem) { .type-row { grid-template-columns: 1fr; gap: .4rem; } }

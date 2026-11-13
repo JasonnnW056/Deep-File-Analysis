@@ -1,4 +1,4 @@
-{# app/web/templates/home.html  -- the landing page (served at /). #}
+{# app/web/templates/home.html  -- the landing page (served at /). The CTA links to the upload page (web.index). #}
 {% extends "base.html" %}
 {% block title %}Deep File Analysis{% endblock %}
 
@@ -74,6 +74,10 @@
       </tbody>
     </table>
   </div>
+
+  <h2 class="block" id="file-types">Supported file types</h2>
+  <p class="lede">A fast scan reads any file up to 50 MB. A hybrid scan also runs the file, so it supports the types below.</p>
+  {% include "filetypes.html" %}
 
   <div class="pair">
     <div>
